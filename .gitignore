@@ -1,0 +1,5 @@
+.DS_Store
+logs/
+scripts/debug_page.html
+__pycache__/
+*.pyc
