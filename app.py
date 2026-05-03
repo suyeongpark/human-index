@@ -93,7 +93,7 @@ def run_query(query, params=None):
 
 # ─── 세션 상태 초기화 ────────────────────────────────
 if "page" not in st.session_state:
-    st.session_state.page = "📈 개요"
+    st.session_state.page = "📈 커뮤니티 개요"
 if "nav_ticker_symbol" not in st.session_state:
     st.session_state.nav_ticker_symbol = None
 if "nav_search_keyword" not in st.session_state:
@@ -115,8 +115,17 @@ def navigate_to(target_page, ticker_symbol=None, search_keyword=None, filter_sym
 st.sidebar.title("📊 Human Index")
 st.sidebar.markdown("---")
 
-# 날짜 범위
-date_range = run_query("SELECT MIN(post_date) as min_d, MAX(post_date) as max_d FROM posts")
+# 날짜 범위 (커뮤니티 + 전문가 통합)
+date_range = run_query("""
+    SELECT LEAST(
+        (SELECT MIN(post_date) FROM posts),
+        (SELECT MIN(published_date) FROM expert_articles)
+    ) as min_d,
+    GREATEST(
+        (SELECT MAX(post_date) FROM posts),
+        (SELECT MAX(published_date) FROM expert_articles)
+    ) as max_d
+""")
 min_date = date_range["min_d"].iloc[0]
 max_date = date_range["max_d"].iloc[0]
 
@@ -132,22 +141,65 @@ if len(selected_range) == 2:
 else:
     start_date, end_date = min_date, max_date
 
-MENU_ITEMS = ["📈 개요", "📊 언급량 랭킹", "🚀 급상승 랭킹", "👤 작성자 랭킹", "🔍 종목 검색", "📋 게시글 목록"]
+# 메뉴 섹션 정의
+COMMUNITY_PAGES = ["📈 커뮤니티 개요", "📊 언급량 랭킹", "🚀 급상승 랭킹", "👤 작성자 랭킹", "📋 게시글 목록"]
+EXPERT_PAGES = ["📈 전문가 개요", "📊 리포트 랭킹", "📋 리포트 목록"]
+COMBINED_PAGES = ["🏠 종합 대시보드", "🔍 종목 검색"]
+ALL_PAGES = COMMUNITY_PAGES + EXPERT_PAGES + COMBINED_PAGES
 
 # navigate_to → rerun 후, radio 생성 전에 위젯 키 동기화
 if st.session_state.get("_pending_nav"):
-    st.session_state._page_radio = st.session_state.page
+    # 어느 섹션의 radio인지 찾아서 동기화
+    p = st.session_state.page
+    if p in COMMUNITY_PAGES:
+        st.session_state._radio_community = p
+    elif p in EXPERT_PAGES:
+        st.session_state._radio_expert = p
+    elif p in COMBINED_PAGES:
+        st.session_state._radio_combined = p
     st.session_state._pending_nav = False
 
-def _on_page_change():
-    st.session_state.page = st.session_state._page_radio
-    st.session_state.nav_ticker_symbol = None
-    st.session_state.nav_search_keyword = None
+def _make_handler(section_pages, radio_key, other_keys):
+    def handler():
+        st.session_state.page = st.session_state[radio_key]
+        # 다른 섹션 radio 선택 해제 (None으로)
+        for k in other_keys:
+            if k in st.session_state:
+                st.session_state[k] = None
+        st.session_state.nav_ticker_symbol = None
+        st.session_state.nav_search_keyword = None
+    return handler
 
+# 현재 페이지가 어느 섹션인지 판별
+current = st.session_state.page
+comm_idx = COMMUNITY_PAGES.index(current) if current in COMMUNITY_PAGES else None
+expert_idx = EXPERT_PAGES.index(current) if current in EXPERT_PAGES else None
+combined_idx = COMBINED_PAGES.index(current) if current in COMBINED_PAGES else None
+
+st.sidebar.markdown("#### 📢 커뮤니티")
 st.sidebar.radio(
-    "메뉴", MENU_ITEMS, key="_page_radio",
-    on_change=_on_page_change,
+    "커뮤니티", COMMUNITY_PAGES, key="_radio_community",
+    index=comm_idx if comm_idx is not None else 0,
+    on_change=_make_handler(COMMUNITY_PAGES, "_radio_community", ["_radio_expert", "_radio_combined"]),
+    label_visibility="collapsed",
 )
+
+st.sidebar.markdown("#### 🔬 전문가")
+st.sidebar.radio(
+    "전문가", EXPERT_PAGES, key="_radio_expert",
+    index=expert_idx if expert_idx is not None else None,
+    on_change=_make_handler(EXPERT_PAGES, "_radio_expert", ["_radio_community", "_radio_combined"]),
+    label_visibility="collapsed",
+)
+
+st.sidebar.markdown("#### 📊 종합")
+st.sidebar.radio(
+    "종합", COMBINED_PAGES, key="_radio_combined",
+    index=combined_idx if combined_idx is not None else None,
+    on_change=_make_handler(COMBINED_PAGES, "_radio_combined", ["_radio_community", "_radio_expert"]),
+    label_visibility="collapsed",
+)
+
 page = st.session_state.page
 
 st.sidebar.markdown("---")
@@ -156,9 +208,9 @@ st.sidebar.caption(f"데이터 범위: {min_date} ~ {max_date}")
 # ═══════════════════════════════════════════════════════
 # 📈 개요 페이지
 # ═══════════════════════════════════════════════════════
-if st.session_state.page == "📈 개요":
-    st.title("📈 Human Index Dashboard")
-    st.caption("커뮤니티 주식 언급량 분석")
+if st.session_state.page == "📈 커뮤니티 개요":
+    st.title("📢 커뮤니티 대시보드")
+    st.caption("커뮤니티 주식 언급량 분석 (대중 의견)")
 
     # KPI 카드
     kpi = run_query("""
@@ -570,3 +622,265 @@ elif st.session_state.page == "📋 게시글 목록":
 
     st.caption(f"총 {len(posts_df)}건 표시")
     st.dataframe(posts_df, use_container_width=True, hide_index=True)
+
+
+# ═══════════════════════════════════════════════════════
+# 📈 전문가 개요 페이지
+# ═══════════════════════════════════════════════════════
+elif st.session_state.page == "📈 전문가 개요":
+    st.title("🔬 전문가 대시보드")
+    st.caption("증권사 리포트 분석 (전문가 의견)")
+
+    kpi_ex = run_query("""
+        SELECT
+            (SELECT COUNT(*) FROM expert_articles WHERE published_date BETWEEN %s AND %s) as total_reports,
+            (SELECT COUNT(DISTINCT eam.ticker_id) FROM expert_article_mentions eam
+             JOIN expert_articles ea ON ea.id = eam.article_id
+             WHERE ea.published_date BETWEEN %s AND %s) as unique_tickers,
+            (SELECT COUNT(DISTINCT securities_firm) FROM expert_articles
+             WHERE published_date BETWEEN %s AND %s AND securities_firm IS NOT NULL) as firms,
+            (SELECT COUNT(*) FROM expert_article_mentions eam
+             JOIN expert_articles ea ON ea.id = eam.article_id
+             WHERE ea.published_date BETWEEN %s AND %s AND eam.sentiment = 1) as buy_cnt,
+            (SELECT COUNT(*) FROM expert_article_mentions eam
+             JOIN expert_articles ea ON ea.id = eam.article_id
+             WHERE ea.published_date BETWEEN %s AND %s AND eam.sentiment <= 0) as other_cnt
+    """, (start_date, end_date) * 5)
+
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("📄 총 리포트", f"{kpi_ex['total_reports'].iloc[0]:,}")
+    c2.metric("📌 종목 수", f"{kpi_ex['unique_tickers'].iloc[0]}")
+    c3.metric("🏢 증권사 수", f"{kpi_ex['firms'].iloc[0]}")
+    buy = kpi_ex['buy_cnt'].iloc[0]
+    total_op = buy + kpi_ex['other_cnt'].iloc[0]
+    buy_pct = round(100 * buy / total_op, 1) if total_op > 0 else 0
+    c4.metric("📈 Buy 비율", f"{buy_pct}%")
+
+    st.markdown("---")
+
+    col_l, col_r = st.columns(2)
+    with col_l:
+        st.subheader("📊 일별 리포트 수")
+        daily_reports = run_query("""
+            SELECT published_date as "날짜", COUNT(*) as "리포트 수"
+            FROM expert_articles WHERE published_date BETWEEN %s AND %s
+            GROUP BY published_date ORDER BY published_date
+        """, (start_date, end_date))
+        if not daily_reports.empty:
+            st.bar_chart(daily_reports.set_index("날짜"))
+
+    with col_r:
+        st.subheader("🏢 증권사별 리포트 수")
+        by_firm = run_query("""
+            SELECT securities_firm as "증권사", COUNT(*) as "리포트 수"
+            FROM expert_articles
+            WHERE published_date BETWEEN %s AND %s AND securities_firm IS NOT NULL
+            GROUP BY securities_firm ORDER BY COUNT(*) DESC LIMIT 15
+        """, (start_date, end_date))
+        if not by_firm.empty:
+            st.bar_chart(by_firm.set_index("증권사"))
+
+    st.markdown("---")
+    st.subheader("🔥 TOP 10 커버 종목")
+    top_cover = run_query("""
+        SELECT t.name as "종목", COUNT(*) as "리포트 수",
+               COUNT(DISTINCT ea.securities_firm) as "증권사 수",
+               STRING_AGG(DISTINCT ea.securities_firm, ', ') as "커버 증권사"
+        FROM expert_article_mentions eam
+        JOIN tickers t ON t.id = eam.ticker_id
+        JOIN expert_articles ea ON ea.id = eam.article_id
+        WHERE ea.published_date BETWEEN %s AND %s
+        GROUP BY t.name ORDER BY COUNT(*) DESC LIMIT 10
+    """, (start_date, end_date))
+    if not top_cover.empty:
+        st.dataframe(top_cover, use_container_width=True, hide_index=True)
+
+
+# ═══════════════════════════════════════════════════════
+# 📊 리포트 랭킹 페이지
+# ═══════════════════════════════════════════════════════
+elif st.session_state.page == "📊 리포트 랭킹":
+    st.title("📊 종목별 리포트 랭킹")
+
+    rpt_limit_opts = {"30건": 30, "50건": 50, "100건": 100, "전체": 9999}
+    rpt_limit_label = st.selectbox("표시 건수", list(rpt_limit_opts.keys()), key="rpt_limit")
+    rpt_limit = rpt_limit_opts[rpt_limit_label]
+
+    rpt_ranking = run_query("""
+        SELECT t.symbol as "심볼", t.name as "종목명",
+               COUNT(*) as "리포트 수",
+               COUNT(DISTINCT ea.securities_firm) as "증권사 수",
+               COUNT(*) FILTER (WHERE eam.opinion ILIKE '%%buy%%' OR eam.opinion = '매수') as "Buy",
+               COUNT(*) FILTER (WHERE eam.opinion ILIKE '%%hold%%' OR eam.opinion = '중립') as "Hold",
+               COUNT(*) FILTER (WHERE eam.opinion ILIKE '%%sell%%' OR eam.opinion = '매도') as "Sell"
+        FROM expert_article_mentions eam
+        JOIN tickers t ON t.id = eam.ticker_id
+        JOIN expert_articles ea ON ea.id = eam.article_id
+        WHERE ea.published_date BETWEEN %s AND %s
+        GROUP BY t.symbol, t.name
+        ORDER BY COUNT(*) DESC
+        LIMIT %s
+    """, (start_date, end_date, rpt_limit))
+
+    if not rpt_ranking.empty:
+        st.dataframe(rpt_ranking, use_container_width=True, hide_index=True)
+    else:
+        st.info("데이터가 없습니다.")
+
+
+# ═══════════════════════════════════════════════════════
+# 📋 리포트 목록 페이지
+# ═══════════════════════════════════════════════════════
+elif st.session_state.page == "📋 리포트 목록":
+    st.title("📋 증권사 리포트 목록")
+
+    col1, col2, col3 = st.columns([3, 1, 1])
+    with col1:
+        rpt_search = st.text_input("🔎 제목 검색", placeholder="종목명 또는 키워드", key="rpt_search")
+    with col2:
+        firms = run_query("""
+            SELECT DISTINCT securities_firm FROM expert_articles
+            WHERE securities_firm IS NOT NULL AND published_date BETWEEN %s AND %s
+            ORDER BY securities_firm
+        """, (start_date, end_date))
+        firm_list = ["전체"] + firms["securities_firm"].tolist()
+        selected_firm = st.selectbox("🏢 증권사", firm_list, key="rpt_firm")
+    with col3:
+        rpt_lim = st.selectbox("표시 건수", [50, 100, 200, 500], key="rpt_list_limit")
+
+    # 쿼리 조건
+    conditions = ["ea.published_date BETWEEN %s AND %s"]
+    params = [start_date, end_date]
+
+    if rpt_search:
+        conditions.append("ea.title ILIKE %s")
+        params.append(f"%{rpt_search}%")
+    if selected_firm != "전체":
+        conditions.append("ea.securities_firm = %s")
+        params.append(selected_firm)
+
+    params.append(rpt_lim)
+    where = " AND ".join(conditions)
+
+    rpt_df = run_query(f"""
+        SELECT ea.published_date as "날짜", ea.title as "제목",
+               ea.securities_firm as "증권사", ea.author as "작성자",
+               eam.target_price as "목표가", eam.opinion as "투자의견",
+               t.name as "종목"
+        FROM expert_articles ea
+        LEFT JOIN expert_article_mentions eam ON eam.article_id = ea.id
+        LEFT JOIN tickers t ON t.id = eam.ticker_id
+        WHERE {where}
+        ORDER BY ea.published_date DESC, ea.id DESC
+        LIMIT %s
+    """, params)
+
+    st.caption(f"총 {len(rpt_df)}건 표시")
+    st.dataframe(rpt_df, use_container_width=True, hide_index=True)
+
+
+# ═══════════════════════════════════════════════════════
+# 🏠 종합 대시보드 페이지
+# ═══════════════════════════════════════════════════════
+elif st.session_state.page == "🏠 종합 대시보드":
+    st.title("🏠 종합 대시보드")
+    st.caption("대중 의견(커뮤니티) vs 전문가 의견(증권사 리포트) 교차 분석")
+
+    # KPI
+    kpi_all = run_query("""
+        SELECT
+            (SELECT COUNT(*) FROM posts WHERE post_date BETWEEN %s AND %s) as comm_posts,
+            (SELECT COUNT(*) FROM expert_articles WHERE published_date BETWEEN %s AND %s) as expert_reports
+    """, (start_date, end_date, start_date, end_date))
+
+    c1, c2 = st.columns(2)
+    c1.metric("📢 커뮤니티 게시글", f"{kpi_all['comm_posts'].iloc[0]:,}")
+    c2.metric("🔬 전문가 리포트", f"{kpi_all['expert_reports'].iloc[0]:,}")
+
+    st.markdown("---")
+
+    # 일별 비교 차트
+    st.subheader("📊 일별 커뮤니티 vs 전문가")
+    daily_compare = run_query("""
+        WITH comm AS (
+            SELECT post_date as d, COUNT(*) as cnt FROM posts
+            WHERE post_date BETWEEN %s AND %s GROUP BY post_date
+        ),
+        expert AS (
+            SELECT published_date as d, COUNT(*) as cnt FROM expert_articles
+            WHERE published_date BETWEEN %s AND %s GROUP BY published_date
+        )
+        SELECT COALESCE(c.d, e.d) as "날짜",
+               COALESCE(c.cnt, 0) as "커뮤니티 게시글",
+               COALESCE(e.cnt, 0) as "전문가 리포트"
+        FROM comm c FULL OUTER JOIN expert e ON c.d = e.d
+        ORDER BY "날짜"
+    """, (start_date, end_date, start_date, end_date))
+    if not daily_compare.empty:
+        st.line_chart(daily_compare.set_index("날짜"))
+
+    st.markdown("---")
+
+    # 종목별 교차 분석
+    st.subheader("🔀 종목별 대중 vs 전문가 비교")
+    cross = run_query("""
+        WITH comm_mentions AS (
+            SELECT pm.ticker_id, COUNT(*) as comm_cnt,
+                   ROUND(AVG(pm.sentiment)::numeric, 2) as comm_sentiment
+            FROM post_mentions pm JOIN posts p ON p.id = pm.post_id
+            WHERE p.post_date BETWEEN %s AND %s
+            GROUP BY pm.ticker_id
+        ),
+        expert_mentions AS (
+            SELECT eam.ticker_id, COUNT(*) as expert_cnt,
+                   ROUND(AVG(eam.sentiment)::numeric, 2) as expert_sentiment
+            FROM expert_article_mentions eam
+            JOIN expert_articles ea ON ea.id = eam.article_id
+            WHERE ea.published_date BETWEEN %s AND %s
+            GROUP BY eam.ticker_id
+        )
+        SELECT t.name as "종목",
+               COALESCE(c.comm_cnt, 0) as "커뮤니티 언급",
+               COALESCE(e.expert_cnt, 0) as "전문가 리포트",
+               c.comm_sentiment as "대중 감성",
+               e.expert_sentiment as "전문가 감성",
+               CASE
+                   WHEN c.comm_sentiment IS NOT NULL AND e.expert_sentiment IS NOT NULL
+                   THEN ROUND((e.expert_sentiment - c.comm_sentiment)::numeric, 2)
+                   ELSE NULL
+               END as "감성 괴리"
+        FROM comm_mentions c
+        FULL OUTER JOIN expert_mentions e ON c.ticker_id = e.ticker_id
+        JOIN tickers t ON t.id = COALESCE(c.ticker_id, e.ticker_id)
+        WHERE t.market NOT IN ('THEME', 'CRYPTO')
+        ORDER BY COALESCE(c.comm_cnt, 0) + COALESCE(e.expert_cnt, 0) DESC
+        LIMIT 30
+    """, (start_date, end_date, start_date, end_date))
+
+    if not cross.empty:
+        st.dataframe(cross, use_container_width=True, hide_index=True)
+
+    st.markdown("---")
+
+    # 전문가만 커버하고 커뮤니티에서 안 보이는 종목
+    st.subheader("🔍 전문가 Only (커뮤니티 미언급)")
+    expert_only = run_query("""
+        SELECT t.name as "종목", COUNT(*) as "리포트 수",
+               STRING_AGG(DISTINCT ea.securities_firm, ', ') as "커버 증권사"
+        FROM expert_article_mentions eam
+        JOIN tickers t ON t.id = eam.ticker_id
+        JOIN expert_articles ea ON ea.id = eam.article_id
+        WHERE ea.published_date BETWEEN %s AND %s
+          AND eam.ticker_id NOT IN (
+              SELECT DISTINCT pm.ticker_id FROM post_mentions pm
+              JOIN posts p ON p.id = pm.post_id
+              WHERE p.post_date BETWEEN %s AND %s
+          )
+        GROUP BY t.name ORDER BY COUNT(*) DESC LIMIT 15
+    """, (start_date, end_date, start_date, end_date))
+
+    if not expert_only.empty:
+        st.dataframe(expert_only, use_container_width=True, hide_index=True)
+    else:
+        st.info("모든 전문가 종목이 커뮤니티에서도 언급되고 있습니다.")
+
