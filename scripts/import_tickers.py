@@ -160,33 +160,60 @@ def import_krx(cur):
     return inserted, updated
 
 
-def import_us(cur):
-    """미국 주요 종목 임포트"""
-    print("\n📌 미국 종목 임포트...")
+def import_us_from_sec(cur):
+    """SEC EDGAR에서 미국 전체 상장 종목 임포트"""
+    print("\n📌 미국 종목 임포트 (SEC EDGAR)...")
+
+    url = "https://www.sec.gov/files/company_tickers.json"
+    headers = {"User-Agent": "HumanIndex admin@humanindex.local"}
+    resp = requests.get(url, headers=headers, timeout=30)
+    data = resp.json()
+
     inserted = 0
     updated = 0
+    skipped = 0
 
-    for symbol, (name, aliases) in US_TICKERS.items():
+    for item in data.values():
+        symbol = item.get("ticker", "").strip()
+        name = item.get("title", "").strip()
+
+        if not symbol or not name:
+            continue
+
+        # 이미 KRX에 있는 심볼 스킵 (숫자 6자리는 한국 종목)
+        if symbol.isdigit() and len(symbol) == 6:
+            skipped += 1
+            continue
+
+        # 심볼에 특수문자가 있으면 정리 (예: BRK/B → BRK.B)
+        symbol = symbol.replace("/", ".")
+
+        # 이름 정리 (SEC는 대문자)
+        name = name.title()
+
         try:
             cur.execute(
                 """
                 INSERT INTO tickers (symbol, name, market, is_active)
-                VALUES (%s, %s, %s, TRUE)
+                VALUES (%s, %s, 'US', TRUE)
                 ON CONFLICT (symbol) DO UPDATE
-                    SET name = EXCLUDED.name, market = EXCLUDED.market
+                    SET name = CASE
+                        WHEN tickers.market = 'US' THEN EXCLUDED.name
+                        ELSE tickers.name
+                    END
                 RETURNING (xmax = 0) as is_new
                 """,
-                (symbol, name, "US"),
+                (symbol, name),
             )
             is_new = cur.fetchone()[0]
             if is_new:
                 inserted += 1
             else:
                 updated += 1
-        except Exception as e:
-            print(f"  ⚠ {symbol}: {e}")
+        except Exception:
+            pass
 
-    print(f"  ✅ US: {len(US_TICKERS)}개 처리")
+    print(f"  ✅ SEC EDGAR: {len(data)}개 처리 (신규: {inserted}, 업데이트: {updated}, 스킵: {skipped})")
     return inserted, updated
 
 
@@ -206,7 +233,7 @@ def main():
                 krx_ins, krx_upd = import_krx(cur)
                 print(f"  → 신규: {krx_ins}, 업데이트: {krx_upd}")
 
-                us_ins, us_upd = import_us(cur)
+                us_ins, us_upd = import_us_from_sec(cur)
                 print(f"  → 신규: {us_ins}, 업데이트: {us_upd}")
 
                 # 최종 통계
@@ -219,7 +246,7 @@ def main():
         print(f"📊 결과: {before}개 → {after}개 (+{after - before})")
         print(f"\n  시장별:")
         for market, cnt in rows:
-            print(f"    {market:<10} {cnt:>5}개")
+            print(f"    {market:<10} {cnt:>6}개")
 
         # 샘플
         with conn.cursor() as cur:
@@ -229,7 +256,7 @@ def main():
                 print(f"  {r[0]} {r[1]} ({r[2]})")
 
             print(f"\n📋 US 샘플 (10개):")
-            cur.execute("SELECT symbol, name FROM tickers WHERE market = 'US' ORDER BY symbol LIMIT 10")
+            cur.execute("SELECT symbol, name FROM tickers WHERE market = 'US' ORDER BY random() LIMIT 10")
             for r in cur.fetchall():
                 print(f"  {r[0]} {r[1]}")
 

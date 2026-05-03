@@ -75,7 +75,8 @@ TICKER_DEFS = [
     ("ARM", "ARM Holdings", "NASDAQ", ["ARM"]),
     ("PLTR", "Palantir", "NYSE", ["팔란티어", "Palantir", "PLTR"]),
     ("ASML", "ASML", "NASDAQ", ["ASML"]),
-    ("WDC", "Western Digital", "NASDAQ", ["샌디스크", "웨스턴디지털", "WDC"]),
+    ("SNDK", "SanDisk", "NASDAQ", ["샌디스크", "SanDisk", "SNDK"]),
+    ("WDC", "Western Digital", "NASDAQ", ["웨스턴디지털", "WDC"]),
     ("SOFI", "SoFi", "NASDAQ", ["소파이", "SoFi", "SOFI"]),
     ("COIN", "Coinbase", "NASDAQ", ["코인베이스", "Coinbase"]),
 

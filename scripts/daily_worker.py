@@ -122,7 +122,7 @@ TICKER_ALIASES = {
     "브로드컴": "AVGO", "Broadcom": "AVGO",
     "ARM": "ARM",
     "ASML": "ASML",
-    "샌디스크": "WDC", "웨스턴디지털": "WDC",
+    "샌디스크": "SNDK", "웨스턴디지털": "WDC",
     "시게이트": "STX",
     "팔란티어": "PLTR", "Palantir": "PLTR",
     "소파이": "SOFI",
