@@ -60,7 +60,8 @@ COMMUNITIES = [
         "category": "주식",
         "crawl_url": (
             "https://mlbpark.donga.com/mp/b.php"
-            "?b=bullpen&select=spf&query=%EC%A3%BC%EC%8B%9D"
+            "?search_select=sct&search_input=&select=spf"
+            "&m=search&b=bullpen&query=%EC%A3%BC%EC%8B%9D"
         ),
         "posts_per_page": 30,
         "max_pages": 5,  # 일일 크롤링 시 최근 5페이지만 (150건)
@@ -73,70 +74,49 @@ COMMUNITIES = [
     # },
 ]
 
-# ─── 종목 사전 (한글 별칭 → ticker 매핑) ─────────────
-# DB에 등록된 종목과 별칭의 매핑
-TICKER_ALIASES = {
-    # KRX 주요 종목 별칭
-    "삼성전자": "005930", "삼전": "005930",
-    "SK하이닉스": "000660", "하이닉스": "000660", "하닉": "000660",
-    "LG에너지": "373220", "LG엔솔": "373220",
-    "삼성전자우": "005935", "삼전우": "005935",
-    "삼성SDI": "006400", "삼성sdi": "006400",
-    "LG화학": "051910",
-    "포스코": "005490", "POSCO": "005490",
-    "네이버": "035420", "NAVER": "035420",
-    "카카오": "035720",
-    "기아차": "000270", "기아": "000270",
-    "현대차": "005380", "현대자동차": "005380",
-    "셀트리온": "068270",
-    "현대모비스": "012330",
-    "삼성물산": "028260",
-    "삼성전기": "009150",
-    "LG전자": "066570",
-    "한화에어로": "012450", "한화에어": "012450",
-    "한화시스템": "272210",
-    "한화": "000880",
-    "한미반도체": "042700",
-    "에코프로비엠": "247540", "에코프로": "247540",
-    "크래프톤": "259960",
-    "하이브": "352820",
-    "HMM": "011200",
-    "삼성SDS": "018260",
-    "고려아연": "010130",
-    "KB금융": "105560",
-    "신한지주": "055550", "신한금융": "055550",
-    "삼성생명": "032830",
-    # 미국 주요 종목 한글 별칭
-    "애플": "AAPL", "Apple": "AAPL", "AAPL": "AAPL",
-    "마이크로소프트": "MSFT", "마소": "MSFT",
-    "알파벳": "GOOGL", "구글": "GOOGL", "Google": "GOOGL",
-    "아마존": "AMZN", "Amazon": "AMZN",
-    "엔비디아": "NVDA", "NVIDIA": "NVDA",
-    "테슬라": "TSLA", "Tesla": "TSLA",
+# ─── 수동 한글 별칭 (DB name과 다른 약칭들) ──────────
+# DB의 종목명은 공식 명칭이라 커뮤니티 약칭과 다른 경우가 있음
+EXTRA_ALIASES = {
+    # KRX 약칭
+    "삼전": "005930", "삼전우": "005935",
+    "하닉": "000660", "하이닉스": "000660",
+    "LG엔솔": "373220",
+    "한화에어": "012450",
+    "에코프로": "247540",
+    "현대차": "005380",
+    "기아차": "000270",
+    # 미국 한글 별칭
+    "애플": "AAPL", "구글": "GOOGL", "아마존": "AMZN",
+    "엔비디아": "NVDA", "테슬라": "TSLA",
     "메타": "META", "페이스북": "META",
-    "넷플릭스": "NFLX", "Netflix": "NFLX",
-    "마이크론": "MU", "Micron": "MU",
-    "인텔": "INTC", "Intel": "INTC",
-    "AMD": "AMD",
-    "TSMC": "TSM",
-    "브로드컴": "AVGO", "Broadcom": "AVGO",
-    "ARM": "ARM",
-    "ASML": "ASML",
-    "샌디스크": "SNDK", "웨스턴디지털": "WDC",
-    "시게이트": "STX",
-    "팔란티어": "PLTR", "Palantir": "PLTR",
-    "소파이": "SOFI",
-    "퀄컴": "QCOM",
-    "코인베이스": "COIN",
-    "화이자": "PFE",
-    "모더나": "MRNA",
+    "넷플릭스": "NFLX", "마이크론": "MU",
+    "인텔": "INTC", "마소": "MSFT", "마이크로소프트": "MSFT",
+    "브로드컴": "AVGO", "퀄컴": "QCOM",
+    "샌디스크": "SNDK", "웨스턴디지털": "WDC", "시게이트": "STX",
+    "팔란티어": "PLTR", "소파이": "SOFI",
+    "코인베이스": "COIN", "화이자": "PFE", "모더나": "MRNA",
     "록히드마틴": "LMT", "록히드": "LMT",
-    "보잉": "BA",
-    "코스트코": "COST",
-    "디즈니": "DIS",
-    # ETF
-    "QQQ": "QQQ", "TQQQ": "TQQQ", "SOXL": "SOXL",
-    "SCHD": "SCHD", "SPY": "SPY",
+    "보잉": "BA", "코스트코": "COST", "디즈니": "DIS",
+    "노보노디스크": "NVO", "노보": "NVO",
+    "일라이릴리": "LLY", "릴리": "LLY",
+    "골드만삭스": "GS", "JP모건": "JPM",
+    "월마트": "WMT", "나이키": "NKE",
+    "엑슨모빌": "XOM", "셰브론": "CVX",
+    "알파벳": "GOOGL", "버크셔": "BRK.B",
+    "우버": "UBER", "오라클": "ORCL", "어도비": "ADBE",
+    "니오": "NIO", "리비안": "RIVN", "리오토": "LI",
+    "온세미": "ON", "마벨": "MRVL", "램리서치": "LRCX",
+    "노스롭": "NOC", "레이시온": "RTX",
+}
+
+# 오매칭 방지: 너무 일반적이거나 짧은 단어는 제외
+SKIP_NAMES = {
+    "한국", "대한", "제일", "동양", "삼성", "대우", "현대", "한화",
+    "서울", "부산", "동아", "세계", "우리", "신한", "아시아",
+    "IT", "AI", "OK", "SK", "LG", "LS", "GS", "KT",
+    # US에서 너무 짧은 심볼
+    "A", "B", "C", "D", "E", "F", "G", "K", "L", "M",
+    "O", "R", "T", "U", "V", "W", "X", "Y", "Z",
 }
 
 # 감성 분석 키워드
@@ -280,18 +260,35 @@ def analyze_sentiment(title: str) -> int:
 
 
 def build_ticker_map(cur) -> dict:
-    """DB의 tickers 테이블 기반으로 alias → ticker_id 매핑 구성"""
-    ticker_map = {}  # alias → (ticker_id, symbol)
+    """DB의 tickers 테이블 전체 + 수동 별칭으로 매칭 맵 구성
+    Returns: {keyword: (ticker_id, symbol)} - 긴 키워드 우선
+    """
+    ticker_map = {}  # keyword → (ticker_id, symbol)
 
-    # TICKER_ALIASES의 각 alias에 대해 DB에서 ticker_id 조회
-    cur.execute("SELECT id, symbol, name FROM tickers")
-    db_tickers = {row[1]: (row[0], row[2]) for row in cur.fetchall()}
+    # 1) DB에서 모든 종목 로드
+    cur.execute("SELECT id, symbol, name, market FROM tickers WHERE is_active = TRUE")
+    all_tickers = cur.fetchall()
+    symbol_to_id = {}  # symbol → ticker_id
 
-    for alias, symbol in TICKER_ALIASES.items():
-        if symbol in db_tickers:
-            ticker_id, name = db_tickers[symbol]
-            ticker_map[alias] = (ticker_id, symbol)
+    for ticker_id, symbol, name, market in all_tickers:
+        symbol_to_id[symbol] = ticker_id
 
+        # KRX 종목: name으로 매칭 (예: "미래에셋증권", "삼성전자")
+        if market in ("KOSPI", "KOSDAQ"):
+            if name and len(name) >= 2 and name not in SKIP_NAMES:
+                ticker_map[name] = (ticker_id, symbol)
+
+        # US 종목: 3글자 이상 심볼만 (1~2글자는 오매칭 위험)
+        elif market in ("US", "NASDAQ", "NYSE"):
+            if len(symbol) >= 3 and symbol not in SKIP_NAMES:
+                ticker_map[symbol] = (ticker_id, symbol)
+
+    # 2) 수동 한글 별칭 추가 (DB에 없는 약칭들)
+    for alias, symbol in EXTRA_ALIASES.items():
+        if symbol in symbol_to_id and alias not in SKIP_NAMES:
+            ticker_map[alias] = (symbol_to_id[symbol], symbol)
+
+    log.info(f"  종목 매칭 맵: {len(ticker_map)}개 키워드 로드")
     return ticker_map
 
 
@@ -302,8 +299,8 @@ def extract_tickers_for_new_posts(cur) -> int:
         log.warning("  종목 매핑이 비어있습니다")
         return 0
 
-    # 길이 역순 정렬 (긴 매칭 우선)
-    sorted_aliases = sorted(ticker_map.keys(), key=len, reverse=True)
+    # 길이 역순 정렬 (긴 매칭 우선 → "삼성전자" > "삼성")
+    sorted_keywords = sorted(ticker_map.keys(), key=len, reverse=True)
 
     # 아직 분석하지 않은 게시글 조회
     cur.execute("""
@@ -324,9 +321,9 @@ def extract_tickers_for_new_posts(cur) -> int:
         found_tickers = set()
         remaining = title
 
-        for alias in sorted_aliases:
-            if alias in remaining:
-                ticker_id, symbol = ticker_map[alias]
+        for keyword in sorted_keywords:
+            if keyword in remaining:
+                ticker_id, symbol = ticker_map[keyword]
                 if ticker_id not in found_tickers:
                     found_tickers.add(ticker_id)
                     sentiment = analyze_sentiment(title)
@@ -343,7 +340,7 @@ def extract_tickers_for_new_posts(cur) -> int:
                             total_mentions += 1
                     except Exception:
                         pass
-                remaining = remaining.replace(alias, "", 1)
+                remaining = remaining.replace(keyword, "", 1)
 
     return total_mentions
 
