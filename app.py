@@ -39,6 +39,30 @@ st.markdown("""
         color: #ffffff !important;
         font-size: 1.8rem !important;
     }
+    /* 랭킹 테이블 컴팩트 */
+    [data-testid="stHorizontalBlock"] {
+        gap: 0.2rem !important;
+    }
+    [data-testid="stHorizontalBlock"] [data-testid="stVerticalBlock"] {
+        gap: 0 !important;
+    }
+    [data-testid="stHorizontalBlock"] p {
+        margin-bottom: 0 !important;
+        padding: 0.15rem 0 !important;
+        font-size: 0.85rem !important;
+        line-height: 1.3 !important;
+    }
+    [data-testid="stHorizontalBlock"] button {
+        padding: 0.15rem 0.5rem !important;
+        font-size: 0.75rem !important;
+        min-height: 0 !important;
+        line-height: 1 !important;
+    }
+    /* dataframe을 화면 높이에 맞춤 */
+    [data-testid="stDataFrame"] > div {
+        height: calc(100vh - 250px) !important;
+        max-height: calc(100vh - 250px) !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -67,6 +91,26 @@ def run_query(query, params=None):
         return pd.read_sql_query(query, conn, params=params)
 
 
+# ─── 세션 상태 초기화 ────────────────────────────────
+if "page" not in st.session_state:
+    st.session_state.page = "📈 개요"
+if "nav_ticker_symbol" not in st.session_state:
+    st.session_state.nav_ticker_symbol = None
+if "nav_search_keyword" not in st.session_state:
+    st.session_state.nav_search_keyword = None
+if "nav_filter_symbol" not in st.session_state:
+    st.session_state.nav_filter_symbol = None
+
+
+def navigate_to(target_page, ticker_symbol=None, search_keyword=None, filter_symbol=None):
+    """다른 페이지로 이동"""
+    st.session_state.page = target_page
+    st.session_state.nav_ticker_symbol = ticker_symbol
+    st.session_state.nav_search_keyword = search_keyword
+    st.session_state.nav_filter_symbol = filter_symbol
+    st.session_state._pending_nav = True  # radio 동기화 플래그
+
+
 # ─── 사이드바 ────────────────────────────────────────
 st.sidebar.title("📊 Human Index")
 st.sidebar.markdown("---")
@@ -88,10 +132,23 @@ if len(selected_range) == 2:
 else:
     start_date, end_date = min_date, max_date
 
-page = st.sidebar.radio(
-    "메뉴",
-    ["📈 개요", "🔍 종목 검색", "🏆 랭킹", "📋 게시글 목록"],
+MENU_ITEMS = ["📈 개요", "📊 언급량 랭킹", "🚀 급상승 랭킹", "👤 작성자 랭킹", "🔍 종목 검색", "📋 게시글 목록"]
+
+# navigate_to → rerun 후, radio 생성 전에 위젯 키 동기화
+if st.session_state.get("_pending_nav"):
+    st.session_state._page_radio = st.session_state.page
+    st.session_state._pending_nav = False
+
+def _on_page_change():
+    st.session_state.page = st.session_state._page_radio
+    st.session_state.nav_ticker_symbol = None
+    st.session_state.nav_search_keyword = None
+
+st.sidebar.radio(
+    "메뉴", MENU_ITEMS, key="_page_radio",
+    on_change=_on_page_change,
 )
+page = st.session_state.page
 
 st.sidebar.markdown("---")
 st.sidebar.caption(f"데이터 범위: {min_date} ~ {max_date}")
@@ -99,7 +156,7 @@ st.sidebar.caption(f"데이터 범위: {min_date} ~ {max_date}")
 # ═══════════════════════════════════════════════════════
 # 📈 개요 페이지
 # ═══════════════════════════════════════════════════════
-if page == "📈 개요":
+if st.session_state.page == "📈 개요":
     st.title("📈 Human Index Dashboard")
     st.caption("커뮤니티 주식 언급량 분석")
 
@@ -190,7 +247,7 @@ if page == "📈 개요":
 # ═══════════════════════════════════════════════════════
 # 🔍 종목 검색 페이지
 # ═══════════════════════════════════════════════════════
-elif page == "🔍 종목 검색":
+elif st.session_state.page == "🔍 종목 검색":
     st.title("🔍 종목 검색")
 
     # 한글 별칭 매핑 (검색용)
@@ -219,8 +276,11 @@ elif page == "🔍 종목 검색":
     if ticker_list.empty:
         st.warning("아직 언급된 종목이 없습니다.")
     else:
-        # 검색어 입력
-        search_term = st.text_input("🔎 종목명/별칭 검색", placeholder="예: 삼성전자, 마이크론, 샌디스크...")
+        # 검색어 입력 (랭킹에서 이동 시 자동 채움)
+        default_search = st.session_state.nav_ticker_symbol or ""
+        search_term = st.text_input("🔎 종목명/별칭 검색", value=default_search, placeholder="예: 삼성전자, 마이크론, 샌디스크...")
+        if st.session_state.nav_ticker_symbol:
+            st.session_state.nav_ticker_symbol = None  # 사용 후 초기화
 
         # 별칭으로 심볼 찾기
         matched_symbol = ALIAS_MAP.get(search_term.strip())
@@ -305,101 +365,184 @@ elif page == "🔍 종목 검색":
 
 
 # ═══════════════════════════════════════════════════════
-# 🏆 랭킹 페이지
+# 📊 언급량 랭킹 페이지
 # ═══════════════════════════════════════════════════════
-elif page == "🏆 랭킹":
-    st.title("🏆 종목 언급 랭킹")
+elif st.session_state.page == "📊 언급량 랭킹":
+    st.title("📊 종목 언급량 랭킹")
 
-    tab1, tab2, tab3 = st.tabs(["📊 언급량 순위", "📈 급상승 종목", "👤 활발한 작성자"])
+    rank_limit_options = {"30건": 30, "50건": 50, "100건": 100, "전체": 9999}
+    rank_limit_label = st.selectbox("표시 건수", list(rank_limit_options.keys()))
+    rank_limit = rank_limit_options[rank_limit_label]
 
-    with tab1:
-        st.subheader("종목별 총 언급 수")
-        ranking = run_query("""
-            SELECT t.symbol as "심볼", t.name as "종목명", t.market as "시장",
-                   COUNT(*) as "총 언급",
-                   COUNT(*) FILTER (WHERE pm.sentiment = 1) as "👍 긍정",
-                   COUNT(*) FILTER (WHERE pm.sentiment = -1) as "👎 부정",
-                   COUNT(*) FILTER (WHERE pm.sentiment = 0) as "➖ 중립",
-                   ROUND(100.0 * COUNT(*) FILTER (WHERE pm.sentiment = 1) / NULLIF(COUNT(*), 0), 1) as "긍정률(%%)",
-                   ROUND(
-                       %s * COUNT(*) FILTER (WHERE pm.sentiment = 1) +
-                       %s * COUNT(*) FILTER (WHERE pm.sentiment = -1) +
-                       %s * COUNT(*) FILTER (WHERE pm.sentiment = 0)
-                   , 1) as "⭐ 점수"
-            FROM post_mentions pm
-            JOIN tickers t ON t.id = pm.ticker_id
-            JOIN posts p ON p.id = pm.post_id
+    ranking = run_query("""
+        SELECT t.symbol as "심볼", t.name as "종목명", t.market as "시장",
+               COUNT(*) as "총 언급",
+               COUNT(*) FILTER (WHERE pm.sentiment = 1) as "👍 긍정",
+               COUNT(*) FILTER (WHERE pm.sentiment = -1) as "👎 부정",
+               COUNT(*) FILTER (WHERE pm.sentiment = 0) as "➖ 중립",
+               ROUND(100.0 * COUNT(*) FILTER (WHERE pm.sentiment = 1) / NULLIF(COUNT(*), 0), 1) as "긍정률(%%)",
+               ROUND(
+                   %s * COUNT(*) FILTER (WHERE pm.sentiment = 1) +
+                   %s * COUNT(*) FILTER (WHERE pm.sentiment = -1) +
+                   %s * COUNT(*) FILTER (WHERE pm.sentiment = 0)
+               , 1) as "⭐ 점수"
+        FROM post_mentions pm
+        JOIN tickers t ON t.id = pm.ticker_id
+        JOIN posts p ON p.id = pm.post_id
+        WHERE p.post_date BETWEEN %s AND %s
+        GROUP BY t.symbol, t.name, t.market
+        ORDER BY "⭐ 점수" DESC
+        LIMIT %s
+    """, (SCORE_WEIGHT_POSITIVE, SCORE_WEIGHT_NEGATIVE, SCORE_WEIGHT_NEUTRAL,
+          start_date, end_date, rank_limit))
+
+    if not ranking.empty:
+        # 헤더
+        hdr = st.columns([0.5, 1.2, 1.5, 0.6, 0.6, 0.6, 0.6, 0.6, 0.7, 0.8, 0.5, 0.5])
+        headers = ["#", "심볼", "종목명", "시장", "총언급", "👍", "👎", "➖", "긍정률", "⭐점수", "", ""]
+        for h, label in zip(hdr, headers):
+            h.markdown(f"**{label}**")
+        st.markdown("<hr style='margin:0.2rem 0'>", unsafe_allow_html=True)
+
+        # 행
+        for idx, row in ranking.iterrows():
+            cols = st.columns([0.5, 1.2, 1.5, 0.6, 0.6, 0.6, 0.6, 0.6, 0.7, 0.8, 0.5, 0.5])
+            cols[0].write(f"{idx + 1}")
+            cols[1].write(row["심볼"])
+            cols[2].write(row["종목명"])
+            cols[3].write(row["시장"])
+            cols[4].write(str(row["총 언급"]))
+            cols[5].write(str(row["👍 긍정"]))
+            cols[6].write(str(row["👎 부정"]))
+            cols[7].write(str(row["➖ 중립"]))
+            cols[8].write(f"{row['긍정률(%)'] or 0}%")
+            cols[9].write(f"**{row['⭐ 점수']}**")
+            if cols[10].button("🔍", key=f"tk_{idx}", help="종목 검색"):
+                navigate_to("🔍 종목 검색", ticker_symbol=row["심볼"])
+                st.rerun()
+            if cols[11].button("📋", key=f"ps_{idx}", help="게시글 검색"):
+                navigate_to("📋 게시글 목록", filter_symbol=row["심볼"])
+                st.rerun()
+    else:
+        st.info("데이터가 없습니다.")
+
+
+# ═══════════════════════════════════════════════════════
+# 🚀 급상승 랭킹 페이지
+# ═══════════════════════════════════════════════════════
+elif st.session_state.page == "🚀 급상승 랭킹":
+    st.title("🚀 급상승 종목 랭킹")
+
+    col1, col2 = st.columns(2)
+    with col1:
+        PERIOD_OPTIONS = {"3일간": 3, "주간 (7일)": 7, "월간 (30일)": 30}
+        period_label = st.selectbox("📅 비교 기간", list(PERIOD_OPTIONS.keys()))
+        days = PERIOD_OPTIONS[period_label]
+    with col2:
+        surge_limit_opts = {"20건": 20, "50건": 50, "100건": 100, "전체": 9999}
+        surge_limit_label = st.selectbox("표시 건수", list(surge_limit_opts.keys()), key="surge_limit")
+        surge_limit = surge_limit_opts[surge_limit_label]
+
+    recent_end = end_date
+    recent_start = end_date - timedelta(days=days - 1)
+    prev_end = recent_start - timedelta(days=1)
+    prev_start = prev_end - timedelta(days=days - 1)
+
+    st.caption(f"최근: {recent_start} ~ {recent_end}  vs  이전: {prev_start} ~ {prev_end}")
+
+    recent_label = f"최근 {days}일"
+    prev_label = f"이전 {days}일"
+
+    surge = run_query(f"""
+        WITH recent AS (
+            SELECT pm.ticker_id, COUNT(*) as cnt
+            FROM post_mentions pm JOIN posts p ON p.id = pm.post_id
             WHERE p.post_date BETWEEN %s AND %s
-            GROUP BY t.symbol, t.name, t.market
-            ORDER BY "⭐ 점수" DESC
-        """, (SCORE_WEIGHT_POSITIVE, SCORE_WEIGHT_NEGATIVE, SCORE_WEIGHT_NEUTRAL,
-              start_date, end_date))
-        st.dataframe(ranking, use_container_width=True, hide_index=True)
+            GROUP BY pm.ticker_id
+        ),
+        prev AS (
+            SELECT pm.ticker_id, COUNT(*) as cnt
+            FROM post_mentions pm JOIN posts p ON p.id = pm.post_id
+            WHERE p.post_date BETWEEN %s AND %s
+            GROUP BY pm.ticker_id
+        )
+        SELECT t.name as "종목",
+               COALESCE(r.cnt, 0) as "{recent_label}",
+               COALESCE(p.cnt, 0) as "{prev_label}",
+               COALESCE(r.cnt, 0) - COALESCE(p.cnt, 0) as "변화량",
+               CASE WHEN COALESCE(p.cnt, 0) > 0
+                    THEN ROUND(100.0 * (COALESCE(r.cnt,0) - p.cnt) / p.cnt, 1)
+                    ELSE NULL END as "변화율(%%)"
+        FROM recent r
+        FULL OUTER JOIN prev p ON r.ticker_id = p.ticker_id
+        JOIN tickers t ON t.id = COALESCE(r.ticker_id, p.ticker_id)
+        WHERE t.market NOT IN ('THEME', 'CRYPTO')
+        ORDER BY COALESCE(r.cnt, 0) - COALESCE(p.cnt, 0) DESC
+        LIMIT %s
+    """, (recent_start, recent_end, prev_start, prev_end, surge_limit))
 
-    with tab2:
-        st.subheader("최근 3일 vs 이전 3일 언급량 비교")
-        recent_end = end_date
-        recent_start = end_date - timedelta(days=2)
-        prev_end = recent_start - timedelta(days=1)
-        prev_start = prev_end - timedelta(days=2)
+    if not surge.empty:
+        st.dataframe(surge, use_container_width=True, hide_index=True)
+    else:
+        st.info("비교할 데이터가 부족합니다.")
 
-        surge = run_query("""
-            WITH recent AS (
-                SELECT pm.ticker_id, COUNT(*) as cnt
-                FROM post_mentions pm JOIN posts p ON p.id = pm.post_id
-                WHERE p.post_date BETWEEN %s AND %s
-                GROUP BY pm.ticker_id
-            ),
-            prev AS (
-                SELECT pm.ticker_id, COUNT(*) as cnt
-                FROM post_mentions pm JOIN posts p ON p.id = pm.post_id
-                WHERE p.post_date BETWEEN %s AND %s
-                GROUP BY pm.ticker_id
-            )
-            SELECT t.name as "종목",
-                   COALESCE(r.cnt, 0) as "최근 3일",
-                   COALESCE(p.cnt, 0) as "이전 3일",
-                   COALESCE(r.cnt, 0) - COALESCE(p.cnt, 0) as "변화량",
-                   CASE WHEN COALESCE(p.cnt, 0) > 0
-                        THEN ROUND(100.0 * (COALESCE(r.cnt,0) - p.cnt) / p.cnt, 1)
-                        ELSE NULL END as "변화율(%%)"
-            FROM recent r
-            FULL OUTER JOIN prev p ON r.ticker_id = p.ticker_id
-            JOIN tickers t ON t.id = COALESCE(r.ticker_id, p.ticker_id)
-            WHERE t.market NOT IN ('THEME', 'CRYPTO')
-            ORDER BY COALESCE(r.cnt, 0) - COALESCE(p.cnt, 0) DESC
-            LIMIT 20
-        """, (recent_start, recent_end, prev_start, prev_end))
 
-        if not surge.empty:
-            st.dataframe(surge, use_container_width=True, hide_index=True)
-        else:
-            st.info("비교할 데이터가 부족합니다.")
+# ═══════════════════════════════════════════════════════
+# 👤 작성자 랭킹 페이지
+# ═══════════════════════════════════════════════════════
+elif st.session_state.page == "👤 작성자 랭킹":
+    st.title("👤 활발한 작성자 랭킹")
 
-    with tab3:
-        st.subheader("게시글 많은 작성자 TOP 20")
-        authors = run_query("""
-            SELECT author as "작성자", COUNT(*) as "게시글 수"
-            FROM posts
-            WHERE post_date BETWEEN %s AND %s
-            GROUP BY author ORDER BY COUNT(*) DESC LIMIT 20
-        """, (start_date, end_date))
-        st.dataframe(authors, use_container_width=True, hide_index=True)
+    author_limit_opts = {"20건": 20, "50건": 50, "100건": 100, "전체": 9999}
+    author_limit_label = st.selectbox("표시 건수", list(author_limit_opts.keys()), key="author_limit")
+    author_limit = author_limit_opts[author_limit_label]
+
+    authors = run_query("""
+        SELECT author as "작성자", COUNT(*) as "게시글 수"
+        FROM posts
+        WHERE post_date BETWEEN %s AND %s
+        GROUP BY author ORDER BY COUNT(*) DESC LIMIT %s
+    """, (start_date, end_date, author_limit))
+    st.dataframe(authors, use_container_width=True, hide_index=True)
 
 
 # ═══════════════════════════════════════════════════════
 # 📋 게시글 목록 페이지
 # ═══════════════════════════════════════════════════════
-elif page == "📋 게시글 목록":
+elif st.session_state.page == "📋 게시글 목록":
     st.title("📋 게시글 목록")
+
+    # 랭킹에서 종목 필터로 넘어온 경우
+    filter_symbol = st.session_state.nav_filter_symbol
+    if filter_symbol:
+        st.session_state.nav_filter_symbol = None
 
     col1, col2 = st.columns([3, 1])
     with col1:
-        search = st.text_input("🔎 제목 검색", placeholder="검색어를 입력하세요")
+        default_keyword = st.session_state.nav_search_keyword or ""
+        search = st.text_input("🔎 제목 검색", value=default_keyword, placeholder="검색어를 입력하세요")
+        if st.session_state.nav_search_keyword:
+            st.session_state.nav_search_keyword = None
     with col2:
         limit = st.selectbox("표시 건수", [50, 100, 200, 500], index=0)
 
-    if search:
+    if filter_symbol:
+        # 종목 심볼로 post_mentions 조인 필터
+        st.info(f"🎯 종목 필터: {filter_symbol}")
+        posts_df = run_query("""
+            SELECT p.post_date as "날짜", p.title as "제목", p.author as "작성자",
+                   STRING_AGG(DISTINCT t2.name, ', ') as "언급 종목"
+            FROM posts p
+            JOIN post_mentions pm ON pm.post_id = p.id
+            JOIN tickers t ON t.id = pm.ticker_id AND t.symbol = %s
+            LEFT JOIN post_mentions pm2 ON pm2.post_id = p.id
+            LEFT JOIN tickers t2 ON t2.id = pm2.ticker_id
+            WHERE p.post_date BETWEEN %s AND %s
+            GROUP BY p.id, p.post_date, p.title, p.author
+            ORDER BY p.post_date DESC, p.id DESC
+            LIMIT %s
+        """, (filter_symbol, start_date, end_date, limit))
+    elif search:
         posts_df = run_query("""
             SELECT p.post_date as "날짜", p.title as "제목", p.author as "작성자",
                    STRING_AGG(t.name, ', ') as "언급 종목"
