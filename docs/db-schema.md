@@ -1,6 +1,8 @@
 # Human Index - Database Schema
 
-> PostgreSQL 기반 커뮤니티 주식 언급량 분석 시스템의 데이터베이스 스키마 설계 문서
+> PostgreSQL 기반 주식 언급량 분석 시스템의 데이터베이스 스키마 설계 문서
+> - **대중 의견**: 커뮤니티 게시글 기반 (communities → posts → post_mentions)
+> - **전문가 의견**: 증권사 리포트·뉴스 기사 기반 (expert_sources → expert_articles → expert_article_mentions)
 
 ---
 
@@ -14,6 +16,10 @@ erDiagram
     tickers ||--o{ mention_daily_stats : "aggregated"
     communities ||--o{ mention_daily_stats : "source"
     tickers ||--o{ mention_trend_alerts : "triggers"
+
+    expert_sources ||--o{ expert_articles : "publishes"
+    expert_articles ||--o{ expert_article_mentions : "contains"
+    tickers ||--o{ expert_article_mentions : "referenced_in"
 
     communities {
         int id PK
@@ -73,11 +79,43 @@ erDiagram
         boolean is_read
         timestamptz created_at
     }
+
+    expert_sources {
+        int id PK
+        varchar name
+        varchar source_type
+        varchar base_url
+        boolean is_active
+        timestamptz created_at
+    }
+
+    expert_articles {
+        bigint id PK
+        int source_id FK
+        varchar title
+        varchar author
+        varchar securities_firm
+        date published_date
+        timestamptz collected_at
+        varchar source_url
+    }
+
+    expert_article_mentions {
+        bigint id PK
+        bigint article_id FK
+        int ticker_id FK
+        smallint sentiment
+        varchar target_price
+        varchar opinion
+        timestamptz analyzed_at
+    }
 ```
 
 ---
 
 ## Tables
+
+### 📢 대중 의견 (Public Opinion)
 
 ### 1. `communities` — 크롤링 대상 커뮤니티
 
@@ -161,6 +199,8 @@ erDiagram
 
 ---
 
+### 📊 공통 집계 (Aggregation)
+
 ### 5. `mention_daily_stats` — 일별 종목 언급 통계
 
 일별/커뮤니티별 종목 언급 수와 감성 분포를 집계한 테이블. 트렌드 분석의 기반 데이터.
@@ -206,18 +246,90 @@ erDiagram
 
 ---
 
+### 🔬 전문가 의견 (Expert Opinion)
+
+### 7. `expert_sources` — 전문가 소스
+
+증권사 리포트, 뉴스 기사 등 전문가 의견의 출처를 관리한다.
+
+| Column | Type | Constraint | Description |
+|--------|------|------------|-------------|
+| `id` | `SERIAL` | `PK` | 소스 고유 ID |
+| `name` | `VARCHAR(100)` | `NOT NULL, UNIQUE` | 소스 이름 (예: 한경 컨센서스, 네이버 증권 리서치) |
+| `source_type` | `VARCHAR(20)` | `NOT NULL` | 소스 유형: `report` (증권사 리포트) / `article` (뉴스 기사) |
+| `base_url` | `VARCHAR(500)` | `NOT NULL` | 수집 대상 기본 URL |
+| `is_active` | `BOOLEAN` | `NOT NULL DEFAULT TRUE` | 수집 활성 여부 |
+| `created_at` | `TIMESTAMPTZ` | `NOT NULL DEFAULT NOW()` | 등록 일시 |
+
+---
+
+### 8. `expert_articles` — 전문가 리포트·기사
+
+증권사 리포트 및 뉴스 기사의 메타 정보(제목, 작성자, 증권사, 날짜)를 저장한다. 커뮤니티 `posts`의 전문가 버전.
+
+| Column | Type | Constraint | Description |
+|--------|------|------------|-------------|
+| `id` | `BIGSERIAL` | `PK` | 고유 ID |
+| `source_id` | `INTEGER` | `NOT NULL, FK → expert_sources.id` | 출처 소스 |
+| `title` | `TEXT` | `NOT NULL` | 리포트/기사 제목 |
+| `author` | `VARCHAR(200)` | | 작성자 (애널리스트명, 기자명) |
+| `securities_firm` | `VARCHAR(100)` | | 증권사명 (리포트인 경우. 예: 미래에셋, 삼성증권) |
+| `published_date` | `DATE` | `NOT NULL` | 발행일 |
+| `collected_at` | `TIMESTAMPTZ` | `NOT NULL DEFAULT NOW()` | 수집 일시 |
+| `source_url` | `VARCHAR(1000)` | | 원본 URL (중복 수집 방지용) |
+
+**Indexes:**
+- `ix_expert_articles_source_date` — `(source_id, published_date)` : 소스별 일자 조회
+- `ix_expert_articles_published_date` — `(published_date)` : 날짜 기반 조회
+- `ix_expert_articles_securities_firm` — `(securities_firm)` : 증권사별 조회
+- `uq_expert_articles_source_url` — `UNIQUE(source_url)` : 중복 수집 방지
+
+---
+
+### 9. `expert_article_mentions` — 리포트·기사별 종목 언급 & 감성 분석
+
+리포트/기사 제목에서 추출된 종목 언급과 감성 분석 결과를 저장한다. 커뮤니티 `post_mentions`의 전문가 버전.
+
+| Column | Type | Constraint | Description |
+|--------|------|------------|-------------|
+| `id` | `BIGSERIAL` | `PK` | 고유 ID |
+| `article_id` | `BIGINT` | `NOT NULL, FK → expert_articles.id` | 리포트/기사 참조 |
+| `ticker_id` | `INTEGER` | `NOT NULL, FK → tickers.id` | 언급된 종목 |
+| `sentiment` | `SMALLINT` | `NOT NULL DEFAULT 0` | 감성: `1` 긍정 / `-1` 부정 / `0` 중립 |
+| `target_price` | `VARCHAR(50)` | | 목표가 (리포트에 명시된 경우) |
+| `opinion` | `VARCHAR(20)` | | 투자의견 (매수/중립/매도 등) |
+| `analyzed_at` | `TIMESTAMPTZ` | `NOT NULL DEFAULT NOW()` | 분석 일시 |
+
+**Indexes:**
+- `ix_expert_article_mentions_ticker` — `(ticker_id)` : 종목별 언급 조회
+- `ix_expert_article_mentions_article` — `(article_id)` : 기사별 언급 조회
+- `uq_expert_article_mentions` — `UNIQUE(article_id, ticker_id)` : 동일 기사-종목 중복 방지
+
+---
+
 ## Data Flow
 
 ```mermaid
 flowchart TD
-    A["⏰ Scheduled Crawler<br/>(Worker Service)"] -->|"매일 크롤링"| B["communities"]
-    A -->|"제목 저장"| C["posts"]
-    C -->|"종목 추출 & 감성 분석"| D["post_mentions"]
+    subgraph public["📢 대중 의견"]
+        A["⏰ Scheduled Crawler"] -->|"매일 크롤링"| B["communities"]
+        A -->|"제목 저장"| C["posts"]
+        C -->|"종목 추출 & 감성 분석"| D["post_mentions"]
+    end
+
+    subgraph expert["🔬 전문가 의견"]
+        A2["⏰ Report Crawler"] -->|"리포트/기사 수집"| B2["expert_sources"]
+        A2 -->|"제목 저장"| C2["expert_articles"]
+        C2 -->|"종목 추출 & 감성 분석"| D2["expert_article_mentions"]
+    end
+
     E["tickers<br/>(종목 마스터)"] -->|"매칭"| D
+    E -->|"매칭"| D2
     D -->|"일별 집계"| F["mention_daily_stats"]
+    D2 -->|"일별 집계"| F
     F -->|"주간 비교 분석"| G["mention_trend_alerts"]
     G -->|"알림 표시"| H["🖥️ Blazor WASM UI"]
-    F -->|"차트/대시보드"| H
+    F -->|"차트/대시보드<br/>(대중 vs 전문가)"| H
 ```
 
 ---
@@ -313,6 +425,57 @@ CREATE TABLE mention_trend_alerts (
 
 CREATE INDEX ix_trend_alerts_ticker_date ON mention_trend_alerts (ticker_id, alert_date);
 CREATE INDEX ix_trend_alerts_unread ON mention_trend_alerts (is_read) WHERE is_read = FALSE;
+
+-- =============================================
+-- 전문가 의견 (Expert Opinion)
+-- =============================================
+
+-- 7. expert_sources
+CREATE TABLE expert_sources (
+    id          SERIAL          PRIMARY KEY,
+    name        VARCHAR(100)    NOT NULL UNIQUE,
+    source_type VARCHAR(20)     NOT NULL,
+    base_url    VARCHAR(500)    NOT NULL,
+    is_active   BOOLEAN         NOT NULL DEFAULT TRUE,
+    created_at  TIMESTAMPTZ     NOT NULL DEFAULT NOW()
+);
+
+COMMENT ON COLUMN expert_sources.source_type IS 'report: 증권사 리포트, article: 뉴스 기사';
+
+-- 8. expert_articles
+CREATE TABLE expert_articles (
+    id              BIGSERIAL       PRIMARY KEY,
+    source_id       INTEGER         NOT NULL REFERENCES expert_sources(id),
+    title           TEXT            NOT NULL,
+    author          VARCHAR(200),
+    securities_firm VARCHAR(100),
+    published_date  DATE            NOT NULL,
+    collected_at    TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
+    source_url      VARCHAR(1000)
+);
+
+CREATE INDEX ix_expert_articles_source_date ON expert_articles (source_id, published_date);
+CREATE INDEX ix_expert_articles_published_date ON expert_articles (published_date);
+CREATE INDEX ix_expert_articles_securities_firm ON expert_articles (securities_firm) WHERE securities_firm IS NOT NULL;
+CREATE UNIQUE INDEX uq_expert_articles_source_url ON expert_articles (source_url) WHERE source_url IS NOT NULL;
+
+-- 9. expert_article_mentions
+CREATE TABLE expert_article_mentions (
+    id          BIGSERIAL       PRIMARY KEY,
+    article_id  BIGINT          NOT NULL REFERENCES expert_articles(id) ON DELETE CASCADE,
+    ticker_id   INTEGER         NOT NULL REFERENCES tickers(id),
+    sentiment   SMALLINT        NOT NULL DEFAULT 0,
+    target_price VARCHAR(50),
+    opinion     VARCHAR(20),
+    analyzed_at TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
+    CONSTRAINT uq_expert_article_mentions UNIQUE (article_id, ticker_id)
+);
+
+CREATE INDEX ix_expert_article_mentions_ticker ON expert_article_mentions (ticker_id);
+CREATE INDEX ix_expert_article_mentions_article ON expert_article_mentions (article_id);
+
+COMMENT ON COLUMN expert_article_mentions.sentiment IS '1: 긍정, -1: 부정, 0: 중립';
+COMMENT ON COLUMN expert_article_mentions.opinion IS '매수, 중립, 매도, Trading Buy 등';
 ```
 
 ---
@@ -334,8 +497,21 @@ CREATE INDEX ix_trend_alerts_unread ON mention_trend_alerts (is_read) WHERE is_r
 > `community_id = NULL`인 행은 전체 커뮤니티 합산 통계를 나타낸다.
 > 커뮤니티별 통계와 전체 통계를 하나의 테이블에서 관리하여 쿼리를 단순화한다.
 
+> [!NOTE]
+> ### 대중 의견 vs 전문가 의견 분리 이유
+> 커뮤니티 게시글(대중)과 증권사 리포트·뉴스(전문가)는 데이터 특성이 다르므로 별도 테이블로 관리한다.
+> - **대중 의견**: 대량, 노이즈 多, 감성 분석 중심, 버즈량 추적 목적
+> - **전문가 의견**: 소량, 구조화, 목표가·투자의견 포함, 시장 컨센서스 추적 목적
+> - `mention_daily_stats`에서 양쪽을 합산하여 교차 분석 가능
+
+> [!NOTE]
+> ### expert_articles에 securities_firm을 별도 컬럼으로 둔 이유
+> 하나의 소스(예: 한경 컨센서스)에서 여러 증권사의 리포트가 수집되므로,
+> 증권사를 기사 레벨에서 관리해야 "어떤 증권사가 어떤 종목을 커버하는지" 분석이 가능하다.
+
 > [!IMPORTANT]
 > ### 향후 확장 고려 사항
 > - **ticker_aliases 테이블**: "삼전" → "삼성전자" 같은 별칭 매핑 지원
 > - **crawl_logs 테이블**: 크롤링 실행 이력 및 에러 로그 관리
 > - **price_data 테이블**: 주가 데이터 연동 시 언급량-주가 상관관계 분석 지원
+> - **expert_daily_stats 테이블**: 전문가 의견 전용 일별 집계 (필요 시 mention_daily_stats에서 분리)
