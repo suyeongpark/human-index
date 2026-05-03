@@ -8,6 +8,11 @@ import psycopg2
 import pandas as pd
 from datetime import date, timedelta
 
+# ─── 점수 가중치 설정 ─────────────────────────────────
+SCORE_WEIGHT_POSITIVE = 2.0   # 긍정 가중치
+SCORE_WEIGHT_NEGATIVE = 0.5   # 부정 가중치
+SCORE_WEIGHT_NEUTRAL  = 1.0   # 중립 가중치
+
 # ─── 페이지 설정 ─────────────────────────────────────
 st.set_page_config(
     page_title="Human Index",
@@ -315,14 +320,20 @@ elif page == "🏆 랭킹":
                    COUNT(*) FILTER (WHERE pm.sentiment = 1) as "👍 긍정",
                    COUNT(*) FILTER (WHERE pm.sentiment = -1) as "👎 부정",
                    COUNT(*) FILTER (WHERE pm.sentiment = 0) as "➖ 중립",
-                   ROUND(100.0 * COUNT(*) FILTER (WHERE pm.sentiment = 1) / NULLIF(COUNT(*), 0), 1) as "긍정률(%%)"
+                   ROUND(100.0 * COUNT(*) FILTER (WHERE pm.sentiment = 1) / NULLIF(COUNT(*), 0), 1) as "긍정률(%%)",
+                   ROUND(
+                       %s * COUNT(*) FILTER (WHERE pm.sentiment = 1) +
+                       %s * COUNT(*) FILTER (WHERE pm.sentiment = -1) +
+                       %s * COUNT(*) FILTER (WHERE pm.sentiment = 0)
+                   , 1) as "⭐ 점수"
             FROM post_mentions pm
             JOIN tickers t ON t.id = pm.ticker_id
             JOIN posts p ON p.id = pm.post_id
             WHERE p.post_date BETWEEN %s AND %s
             GROUP BY t.symbol, t.name, t.market
-            ORDER BY COUNT(*) DESC
-        """, (start_date, end_date))
+            ORDER BY "⭐ 점수" DESC
+        """, (SCORE_WEIGHT_POSITIVE, SCORE_WEIGHT_NEGATIVE, SCORE_WEIGHT_NEUTRAL,
+              start_date, end_date))
         st.dataframe(ranking, use_container_width=True, hide_index=True)
 
     with tab2:
