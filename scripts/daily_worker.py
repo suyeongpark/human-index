@@ -160,14 +160,40 @@ def ensure_community(cur, community: dict) -> int:
 
 
 def parse_post_date(date_text: str) -> date:
-    """MLB Park 날짜 파싱"""
+    """게시글 날짜 파싱 (여러 커뮤니티 형식 대응)"""
     date_text = date_text.strip()
-    if ":" in date_text and "-" not in date_text:
+    if not date_text:
         return date.today()
+
+    # "14:30" 같은 시간만 → 오늘
+    if ":" in date_text and "-" not in date_text and "." not in date_text:
+        return date.today()
+
+    # "2026-05-04" (MLB Park)
     try:
         return datetime.strptime(date_text, "%Y-%m-%d").date()
     except ValueError:
-        return date.today()
+        pass
+
+    # "2026-04-12 00:41:38" (클리앙)
+    try:
+        return datetime.strptime(date_text, "%Y-%m-%d %H:%M:%S").date()
+    except ValueError:
+        pass
+
+    # "2026.05.04" 또는 "05.04" (일부 커뮤니티)
+    try:
+        return datetime.strptime(date_text, "%Y.%m.%d").date()
+    except ValueError:
+        pass
+
+    try:
+        return datetime.strptime(f"{date.today().year}.{date_text}", "%Y.%m.%d").date()
+    except ValueError:
+        pass
+
+    return date.today()
+
 
 
 def crawl_mlbpark_page(url: str) -> list[dict]:
