@@ -93,3 +93,13 @@ def paginated_dataframe(df, key, height=700, column_config=None):
             st.session_state[key] = page + 1
             st.rerun()
 
+
+# ─── 기간별 집계 헬퍼 ──────────────────────────────────
+PERIOD_OPTIONS = ["일간", "주간", "월간", "연간"]
+
+PERIOD_SQL = {
+    "일간": {"select": "{date_col}", "group": "{date_col}"},
+    "주간": {"select": "DATE_TRUNC('week', {date_col})::date", "group": "DATE_TRUNC('week', {date_col})"},
+    "월간": {"select": "DATE_TRUNC('month', {date_col})::date", "group": "DATE_TRUNC('month', {date_col})"},
+    "연간": {"select": "DATE_TRUNC('year', {date_col})::date", "group": "DATE_TRUNC('year', {date_col})"},
+}

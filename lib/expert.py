@@ -3,7 +3,7 @@
 """
 
 import streamlit as st
-from lib.shared import run_query, paginated_dataframe
+from lib.shared import run_query, paginated_dataframe, PERIOD_OPTIONS, PERIOD_SQL
 
 
 def page_overview(start_date, end_date):
@@ -38,6 +38,28 @@ def page_overview(start_date, end_date):
 
     st.markdown("---")
 
+    # 기간 선택
+    period = st.selectbox("📅 집계 기간", PERIOD_OPTIONS, key="expert_period")
+    date_sel = PERIOD_SQL[period]["select"].format(date_col="ea.published_date")
+    date_grp = PERIOD_SQL[period]["group"].format(date_col="ea.published_date")
+
+    # 투자의견 변화 추이
+    st.subheader("📈 투자의견 변화 추이")
+    expert_trend = run_query(f"""
+        SELECT {date_sel} as "날짜",
+               COUNT(*) FILTER (WHERE eam.sentiment = 1) as "📈 Buy",
+               COUNT(*) FILTER (WHERE eam.sentiment = 0) as "➖ Hold",
+               COUNT(*) FILTER (WHERE eam.sentiment = -1) as "📉 Sell"
+        FROM expert_article_mentions eam
+        JOIN expert_articles ea ON ea.id = eam.article_id
+        WHERE ea.published_date BETWEEN %s AND %s
+        GROUP BY {date_grp} ORDER BY 1
+    """, (start_date, end_date))
+    if not expert_trend.empty:
+        st.line_chart(expert_trend.set_index("날짜"))
+
+    st.markdown("---")
+
     st.subheader("🔥 TOP 10 커버 종목")
     top_cover = run_query("""
         SELECT t.name as "종목", COUNT(*) as "리포트 수",
@@ -51,35 +73,6 @@ def page_overview(start_date, end_date):
     """, (start_date, end_date))
     if not top_cover.empty:
         paginated_dataframe(top_cover, "pg_top_cover", height=400)
-
-    st.markdown("---")
-
-    st.subheader("🏢 증권사별 리포트 수")
-    by_firm = run_query("""
-        SELECT securities_firm as "증권사", COUNT(*) as "리포트 수"
-        FROM expert_articles
-        WHERE published_date BETWEEN %s AND %s AND securities_firm IS NOT NULL
-        GROUP BY securities_firm ORDER BY COUNT(*) DESC LIMIT 15
-    """, (start_date, end_date))
-    if not by_firm.empty:
-        st.bar_chart(by_firm.set_index("증권사"))
-
-    st.markdown("---")
-
-    # 일별 감성 변화 추이
-    st.subheader("📈 일별 투자의견 변화 추이")
-    expert_trend = run_query("""
-        SELECT ea.published_date as "날짜",
-               COUNT(*) FILTER (WHERE eam.sentiment = 1) as "📈 Buy",
-               COUNT(*) FILTER (WHERE eam.sentiment = 0) as "➖ Hold",
-               COUNT(*) FILTER (WHERE eam.sentiment = -1) as "📉 Sell"
-        FROM expert_article_mentions eam
-        JOIN expert_articles ea ON ea.id = eam.article_id
-        WHERE ea.published_date BETWEEN %s AND %s
-        GROUP BY ea.published_date ORDER BY ea.published_date
-    """, (start_date, end_date))
-    if not expert_trend.empty:
-        st.line_chart(expert_trend.set_index("날짜"))
 
 
 def page_report_ranking(start_date, end_date):

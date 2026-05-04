@@ -4,7 +4,7 @@
 
 import streamlit as st
 from datetime import timedelta
-from lib.shared import run_query, paginated_dataframe, SCORE_WEIGHT_POSITIVE, SCORE_WEIGHT_NEGATIVE, SCORE_WEIGHT_NEUTRAL
+from lib.shared import run_query, navigate_to, paginated_dataframe, PERIOD_OPTIONS, PERIOD_SQL, SCORE_WEIGHT_POSITIVE, SCORE_WEIGHT_NEGATIVE, SCORE_WEIGHT_NEUTRAL
 
 
 def page_overview(start_date, end_date):
@@ -32,17 +32,22 @@ def page_overview(start_date, end_date):
 
     st.markdown("---")
 
-    # 일별 감성 변화 추이
-    st.subheader("📈 일별 감성 변화 추이")
-    sentiment_trend = run_query("""
-        SELECT p.post_date as "날짜",
+    # 기간 선택
+    period = st.selectbox("📅 집계 기간", PERIOD_OPTIONS, key="comm_period")
+    date_sel = PERIOD_SQL[period]["select"].format(date_col="p.post_date")
+    date_grp = PERIOD_SQL[period]["group"].format(date_col="p.post_date")
+
+    # 감성 변화 추이
+    st.subheader("📈 감성 변화 추이")
+    sentiment_trend = run_query(f"""
+        SELECT {date_sel} as "날짜",
                COUNT(*) FILTER (WHERE pm.sentiment = 1) as "👍 긍정",
                COUNT(*) FILTER (WHERE pm.sentiment = 0) as "➖ 중립",
                COUNT(*) FILTER (WHERE pm.sentiment = -1) as "👎 부정"
         FROM post_mentions pm
         JOIN posts p ON p.id = pm.post_id
         WHERE p.post_date BETWEEN %s AND %s
-        GROUP BY p.post_date ORDER BY p.post_date
+        GROUP BY {date_grp} ORDER BY 1
     """, (start_date, end_date))
     if not sentiment_trend.empty:
         st.line_chart(sentiment_trend.set_index("날짜"))
