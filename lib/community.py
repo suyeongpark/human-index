@@ -95,6 +95,23 @@ def page_overview(start_date, end_date):
         if not top_tickers.empty:
             st.bar_chart(top_tickers.set_index("종목"))
 
+    st.markdown("---")
+
+    # 일별 감성 변화 추이
+    st.subheader("📈 일별 감성 변화 추이")
+    sentiment_trend = run_query("""
+        SELECT p.post_date as "날짜",
+               COUNT(*) FILTER (WHERE pm.sentiment = 1) as "👍 긍정",
+               COUNT(*) FILTER (WHERE pm.sentiment = 0) as "➖ 중립",
+               COUNT(*) FILTER (WHERE pm.sentiment = -1) as "👎 부정"
+        FROM post_mentions pm
+        JOIN posts p ON p.id = pm.post_id
+        WHERE p.post_date BETWEEN %s AND %s
+        GROUP BY p.post_date ORDER BY p.post_date
+    """, (start_date, end_date))
+    if not sentiment_trend.empty:
+        st.line_chart(sentiment_trend.set_index("날짜"))
+
 
 def page_mention_ranking(start_date, end_date):
     """📊 언급량 랭킹"""

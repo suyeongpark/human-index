@@ -64,6 +64,23 @@ def page_overview(start_date, end_date):
     if not by_firm.empty:
         st.bar_chart(by_firm.set_index("증권사"))
 
+    st.markdown("---")
+
+    # 일별 감성 변화 추이
+    st.subheader("📈 일별 투자의견 변화 추이")
+    expert_trend = run_query("""
+        SELECT ea.published_date as "날짜",
+               COUNT(*) FILTER (WHERE eam.sentiment = 1) as "📈 Buy",
+               COUNT(*) FILTER (WHERE eam.sentiment = 0) as "➖ Hold",
+               COUNT(*) FILTER (WHERE eam.sentiment = -1) as "📉 Sell"
+        FROM expert_article_mentions eam
+        JOIN expert_articles ea ON ea.id = eam.article_id
+        WHERE ea.published_date BETWEEN %s AND %s
+        GROUP BY ea.published_date ORDER BY ea.published_date
+    """, (start_date, end_date))
+    if not expert_trend.empty:
+        st.line_chart(expert_trend.set_index("날짜"))
+
 
 def page_report_ranking(start_date, end_date):
     """📊 리포트 랭킹"""
