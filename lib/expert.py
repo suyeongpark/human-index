@@ -3,7 +3,7 @@
 """
 
 import streamlit as st
-from lib.shared import run_query, paginated_dataframe, PERIOD_OPTIONS, PERIOD_SQL
+from lib.shared import run_query, paginated_dataframe, PERIOD_OPTIONS, PERIOD_SQL, PERIOD_DAYS
 
 
 def page_overview(start_date, end_date):
@@ -60,7 +60,11 @@ def page_overview(start_date, end_date):
 
     st.markdown("---")
 
-    st.subheader("🔥 TOP 10 커버 종목")
+    # TOP 10 커버 종목 (선택한 기간 기준)
+    from datetime import timedelta
+    top_end = end_date
+    top_start = max(start_date, top_end - timedelta(days=PERIOD_DAYS[period]))
+    st.subheader(f"🔥 TOP 10 커버 종목 ({period})")
     top_cover = run_query("""
         SELECT t.name as "종목", COUNT(*) as "리포트 수",
                COUNT(DISTINCT ea.securities_firm) as "증권사 수",
@@ -70,7 +74,7 @@ def page_overview(start_date, end_date):
         JOIN expert_articles ea ON ea.id = eam.article_id
         WHERE ea.published_date BETWEEN %s AND %s
         GROUP BY t.name ORDER BY COUNT(*) DESC LIMIT 10
-    """, (start_date, end_date))
+    """, (top_start, top_end))
     if not top_cover.empty:
         paginated_dataframe(top_cover, "pg_top_cover", height=400)
 

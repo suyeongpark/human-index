@@ -103,3 +103,6 @@ PERIOD_SQL = {
     "월간": {"select": "DATE_TRUNC('month', {date_col})::date", "group": "DATE_TRUNC('month', {date_col})"},
     "연간": {"select": "DATE_TRUNC('year', {date_col})::date", "group": "DATE_TRUNC('year', {date_col})"},
 }
+
+# TOP 10 등 집계에 사용할 최근 기간 (일 수)
+PERIOD_DAYS = {"일간": 1, "주간": 7, "월간": 30, "연간": 365}

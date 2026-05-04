@@ -4,7 +4,7 @@
 
 import streamlit as st
 from datetime import timedelta
-from lib.shared import run_query, navigate_to, paginated_dataframe, PERIOD_OPTIONS, PERIOD_SQL, SCORE_WEIGHT_POSITIVE, SCORE_WEIGHT_NEGATIVE, SCORE_WEIGHT_NEUTRAL
+from lib.shared import run_query, navigate_to, paginated_dataframe, PERIOD_OPTIONS, PERIOD_SQL, PERIOD_DAYS, SCORE_WEIGHT_POSITIVE, SCORE_WEIGHT_NEGATIVE, SCORE_WEIGHT_NEUTRAL
 
 
 def page_overview(start_date, end_date):
@@ -54,8 +54,11 @@ def page_overview(start_date, end_date):
 
     st.markdown("---")
 
-    # TOP 10 언급 종목
-    st.subheader("🔥 TOP 10 언급 종목")
+    # TOP 10 언급 종목 (선택한 기간 기준)
+    from datetime import date as _date
+    top_end = end_date
+    top_start = max(start_date, top_end - timedelta(days=PERIOD_DAYS[period]))
+    st.subheader(f"🔥 TOP 10 언급 종목 ({period})")
     top_tickers = run_query("""
         SELECT t.name as "종목", COUNT(*) as "언급 수"
         FROM post_mentions pm
@@ -64,7 +67,7 @@ def page_overview(start_date, end_date):
         WHERE p.post_date BETWEEN %s AND %s
           AND t.market NOT IN ('THEME', 'CRYPTO')
         GROUP BY t.name ORDER BY COUNT(*) DESC LIMIT 10
-    """, (start_date, end_date))
+    """, (top_start, top_end))
     if not top_tickers.empty:
         st.bar_chart(top_tickers.set_index("종목"))
 
