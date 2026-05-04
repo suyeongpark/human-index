@@ -60,14 +60,27 @@ COMMUNITIES = [
             "&m=search&b=bullpen&query=%EC%A3%BC%EC%8B%9D"
         ),
         "posts_per_page": 30,
-        "max_pages": 50,  # 안전 상한 (실제로는 중복 감지로 조기 종료)
+        "max_pages": 50,
+        "parser": "mlbpark",
     },
-    # 추후 다른 커뮤니티 추가 가능
-    # {
-    #     "name": "디시인사이드 주식갤러리",
-    #     "base_url": "https://gall.dcinside.com/board/lists/?id=stock",
-    #     ...
-    # },
+    {
+        "name": "클리앙 투자",
+        "base_url": "https://www.clien.net/service/board/cm_stock",
+        "category": "주식",
+        "crawl_url": "https://www.clien.net/service/board/cm_stock",
+        "posts_per_page": 30,
+        "max_pages": 50,
+        "parser": "clien",
+    },
+    {
+        "name": "에펨코리아 주식",
+        "base_url": "https://www.fmkorea.com/stock",
+        "category": "주식",
+        "crawl_url": "https://www.fmkorea.com/index.php?mid=stock",
+        "posts_per_page": 20,
+        "max_pages": 50,
+        "parser": "fmkorea",
+    },
 ]
 
 # ─── 수동 한글 별칭 (DB name과 다른 약칭들) ──────────
@@ -195,18 +208,137 @@ def crawl_mlbpark_page(url: str) -> list[dict]:
     return posts
 
 
+def crawl_clien_page(url: str) -> list[dict]:
+    """클리앙 투자게시판 한 페이지 크롤링"""
+    resp = requests.get(url, headers=HEADERS, timeout=15)
+    resp.encoding = "utf-8"
+    soup = BeautifulSoup(resp.text, "html.parser")
+
+    posts = []
+    for item in soup.select("div.list_item"):
+        title_el = item.select_one("a.list_subject")
+        if not title_el:
+            continue
+
+        # 제목: 카테고리 span 제외한 텍스트
+        title_spans = title_el.find_all("span")
+        title = title_spans[-1].get_text(strip=True) if title_spans else title_el.get_text(strip=True)
+        if not title:
+            continue
+
+        href = title_el.get("href", "")
+        if href and not href.startswith("http"):
+            href = f"https://www.clien.net{href}"
+
+        # 작성자
+        author_el = item.select_one("span.nickname")
+        author = author_el.get_text(strip=True) if author_el else ""
+
+        # 날짜
+        time_el = item.select_one("span.timestamp")
+        date_text = time_el.get_text(strip=True) if time_el else ""
+
+        posts.append({
+            "title": title,
+            "author": re.sub(r"\s+", " ", author).strip(),
+            "post_date": parse_post_date(date_text),
+            "source_url": href,
+        })
+
+    return posts
+
+
+def crawl_fmkorea_page(url: str) -> list[dict]:
+    """에펨코리아 주식 게시판 한 페이지 크롤링"""
+    resp = requests.get(url, headers=HEADERS, timeout=15)
+    resp.encoding = "utf-8"
+    soup = BeautifulSoup(resp.text, "html.parser")
+
+    posts = []
+    # 게시글 목록 테이블
+    for row in soup.select("tr"):
+        title_td = row.select_one("td.title")
+        if not title_td:
+            continue
+
+        title_a = title_td.select_one("a")
+        if not title_a:
+            continue
+
+        # 공지 제외
+        notice = row.select_one("td.notice")
+        if notice:
+            continue
+
+        # 제목 (댓글 수 제외)
+        for reply_span in title_a.select("span.replyNum"):
+            reply_span.decompose()
+        title = title_a.get_text(strip=True)
+        if not title:
+            continue
+
+        href = title_a.get("href", "")
+        if href and not href.startswith("http"):
+            href = f"https://www.fmkorea.com{href}"
+
+        # 작성자
+        author_el = row.select_one("td.author") or row.select_one("a.member_plate")
+        author = author_el.get_text(strip=True) if author_el else ""
+
+        # 날짜
+        time_el = row.select_one("td.time")
+        date_text = time_el.get_text(strip=True) if time_el else ""
+
+        posts.append({
+            "title": title,
+            "author": re.sub(r"\s+", " ", author).strip(),
+            "post_date": parse_post_date(date_text),
+            "source_url": href,
+        })
+
+    return posts
+
+
+# 파서 매핑
+PARSERS = {
+    "mlbpark": crawl_mlbpark_page,
+    "clien": crawl_clien_page,
+    "fmkorea": crawl_fmkorea_page,
+}
+
+
+def _build_page_url(community: dict, page: int) -> str:
+    """사이트별 페이지네이션 URL 생성"""
+    parser = community.get("parser", "mlbpark")
+    base = community["crawl_url"]
+
+    if parser == "mlbpark":
+        offset = page * community["posts_per_page"]
+        return f"{base}&p={offset}"
+    elif parser == "clien":
+        return f"{base}?&po={page}" if page > 0 else base
+    elif parser == "fmkorea":
+        return f"{base}&page={page + 1}" if page > 0 else base
+    return base
+
+
 def crawl_community(cur, community: dict) -> int:
     """커뮤니티 크롤링 + DB 저장. source_url 중복 감지로 자동 종료."""
     community_id = ensure_community(cur, community)
     total_inserted = 0
-    consecutive_dup_pages = 0  # 신규 0건 연속 페이지 수
+    consecutive_dup_pages = 0
+
+    parser_name = community.get("parser", "mlbpark")
+    parse_fn = PARSERS.get(parser_name)
+    if not parse_fn:
+        log.error(f"  알 수 없는 파서: {parser_name}")
+        return 0
 
     for page in range(community["max_pages"]):
-        offset = page * community["posts_per_page"]
-        url = f"{community['crawl_url']}&p={offset}"
+        url = _build_page_url(community, page)
 
         try:
-            posts = crawl_mlbpark_page(url)
+            posts = parse_fn(url)
         except Exception as e:
             log.warning(f"  페이지 {page+1} 크롤링 실패: {e}")
             continue
@@ -232,7 +364,6 @@ def crawl_community(cur, community: dict) -> int:
         total_inserted += inserted
         log.info(f"  페이지 {page+1}: +{inserted} 신규 / {len(posts)} 수집")
 
-        # 신규 0건이면 이미 수집된 영역 → 2연속이면 종료
         if inserted == 0:
             consecutive_dup_pages += 1
             if consecutive_dup_pages >= 2:
