@@ -75,20 +75,21 @@ def paginated_dataframe(df, key, height=700, column_config=None):
     end = start + PAGE_SIZE
     page_df = df.iloc[start:end]
 
-    st.caption(f"총 {total}건 | 페이지 {page + 1} / {total_pages}")
-
     kwargs = dict(use_container_width=True, hide_index=True, height=height)
     if column_config:
         kwargs["column_config"] = column_config
     st.dataframe(page_df, **kwargs)
 
-    col_prev, col_info, col_next = st.columns([1, 2, 1])
+    # 테이블 아래 가운데 정렬: [이전] [페이지 X/Y] [다음]
+    _, col_prev, col_info, col_next, _ = st.columns([2, 1, 1, 1, 2])
     with col_prev:
-        if st.button("⬅️ 이전", disabled=(page == 0), key=f"{key}_prev"):
+        if st.button("⬅️ 이전", disabled=(page == 0), key=f"{key}_prev", use_container_width=True):
             st.session_state[key] = page - 1
             st.rerun()
+    with col_info:
+        st.markdown(f"<div style='text-align:center;padding:0.4rem 0;color:#888;'>{page + 1} / {total_pages}</div>", unsafe_allow_html=True)
     with col_next:
-        if st.button("➡️ 다음", disabled=(page >= total_pages - 1), key=f"{key}_next"):
+        if st.button("다음 ➡️", disabled=(page >= total_pages - 1), key=f"{key}_next", use_container_width=True):
             st.session_state[key] = page + 1
             st.rerun()
 

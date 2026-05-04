@@ -158,7 +158,6 @@ def page_report_list(start_date, end_date):
 
     total_pages = max(1, (total + PAGE_SIZE - 1) // PAGE_SIZE)
 
-    st.caption(f"총 {total}건 | 페이지 {page + 1} / {total_pages}")
     st.dataframe(
         rpt_df, use_container_width=True, hide_index=True, height=700,
         column_config={
@@ -174,13 +173,15 @@ def page_report_list(start_date, end_date):
     )
 
     # 페이지 네비게이션
-    col_prev, col_info, col_next = st.columns([1, 2, 1])
+    _, col_prev, col_info, col_next, _ = st.columns([2, 1, 1, 1, 2])
     with col_prev:
-        if st.button("⬅️ 이전", disabled=(page == 0), key="rpt_prev"):
+        if st.button("⬅️ 이전", disabled=(page == 0), key="rpt_prev", use_container_width=True):
             st.session_state.rpt_page = page - 1
             st.rerun()
+    with col_info:
+        st.markdown(f"<div style='text-align:center;padding:0.4rem 0;color:#888;'>{page + 1} / {total_pages}</div>", unsafe_allow_html=True)
     with col_next:
-        if st.button("➡️ 다음", disabled=(page >= total_pages - 1), key="rpt_next"):
+        if st.button("다음 ➡️", disabled=(page >= total_pages - 1), key="rpt_next", use_container_width=True):
             st.session_state.rpt_page = page + 1
             st.rerun()
 
