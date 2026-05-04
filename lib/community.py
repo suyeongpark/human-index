@@ -230,43 +230,46 @@ def page_post_list(start_date, end_date):
         # 종목 심볼로 post_mentions 조인 필터
         st.info(f"🎯 종목 필터: {filter_symbol}")
         posts_df = run_query("""
-            SELECT p.post_date as "날짜", p.title as "제목", p.author as "작성자",
+            SELECT p.post_date as "날짜", c.name as "커뮤니티", p.title as "제목", p.author as "작성자",
                    STRING_AGG(DISTINCT t2.name, ', ') as "언급 종목",
                    p.source_url as "링크"
             FROM posts p
+            JOIN communities c ON c.id = p.community_id
             JOIN post_mentions pm ON pm.post_id = p.id
             JOIN tickers t ON t.id = pm.ticker_id AND t.symbol = %s
             LEFT JOIN post_mentions pm2 ON pm2.post_id = p.id
             LEFT JOIN tickers t2 ON t2.id = pm2.ticker_id
             WHERE p.post_date BETWEEN %s AND %s
-            GROUP BY p.id, p.post_date, p.title, p.author, p.source_url
+            GROUP BY p.id, p.post_date, c.name, p.title, p.author, p.source_url
             ORDER BY p.post_date DESC, p.id DESC
             LIMIT %s
         """, (filter_symbol, start_date, end_date, limit))
     elif search:
         posts_df = run_query("""
-            SELECT p.post_date as "날짜", p.title as "제목", p.author as "작성자",
+            SELECT p.post_date as "날짜", c.name as "커뮤니티", p.title as "제목", p.author as "작성자",
                    STRING_AGG(t.name, ', ') as "언급 종목",
                    p.source_url as "링크"
             FROM posts p
+            JOIN communities c ON c.id = p.community_id
             LEFT JOIN post_mentions pm ON pm.post_id = p.id
             LEFT JOIN tickers t ON t.id = pm.ticker_id
             WHERE p.post_date BETWEEN %s AND %s
               AND p.title ILIKE %s
-            GROUP BY p.id, p.post_date, p.title, p.author, p.source_url
+            GROUP BY p.id, p.post_date, c.name, p.title, p.author, p.source_url
             ORDER BY p.post_date DESC, p.id DESC
             LIMIT %s
         """, (start_date, end_date, f"%{search}%", limit))
     else:
         posts_df = run_query("""
-            SELECT p.post_date as "날짜", p.title as "제목", p.author as "작성자",
+            SELECT p.post_date as "날짜", c.name as "커뮤니티", p.title as "제목", p.author as "작성자",
                    STRING_AGG(t.name, ', ') as "언급 종목",
                    p.source_url as "링크"
             FROM posts p
+            JOIN communities c ON c.id = p.community_id
             LEFT JOIN post_mentions pm ON pm.post_id = p.id
             LEFT JOIN tickers t ON t.id = pm.ticker_id
             WHERE p.post_date BETWEEN %s AND %s
-            GROUP BY p.id, p.post_date, p.title, p.author, p.source_url
+            GROUP BY p.id, p.post_date, c.name, p.title, p.author, p.source_url
             ORDER BY p.post_date DESC, p.id DESC
             LIMIT %s
         """, (start_date, end_date, limit))
@@ -276,6 +279,7 @@ def page_post_list(start_date, end_date):
         posts_df, use_container_width=True, hide_index=True, height=800,
         column_config={
             "날짜": st.column_config.DateColumn("날짜", width="small"),
+            "커뮤니티": st.column_config.TextColumn("커뮤니티", width="small"),
             "제목": st.column_config.TextColumn("제목", width="large"),
             "작성자": st.column_config.TextColumn("작성자", width="small"),
             "언급 종목": st.column_config.TextColumn("언급 종목", width="medium"),
