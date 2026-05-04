@@ -370,16 +370,13 @@ elif st.session_state.page == "🔍 종목 검색":
 
             if not ticker_info.empty:
                 info = ticker_info.iloc[0]
-                col1, col2, col3, col4 = st.columns(4)
-                col1.metric("총 언급", f"{info['total_mentions']}")
-                col2.metric("👍 긍정", f"{info['positive']}")
-                col3.metric("👎 부정", f"{info['negative']}")
-                col4.metric("➖ 중립", f"{info['neutral']}")
 
             st.markdown("---")
 
+            # ── 커뮤니티 ──
+            st.subheader("📢 커뮤니티")
+
             # 일별 추이 차트
-            st.subheader("📈 일별 언급 추이")
             daily = run_query("""
                 SELECT p.post_date as "날짜",
                        COUNT(*) as "전체",
@@ -395,20 +392,41 @@ elif st.session_state.page == "🔍 종목 검색":
             if not daily.empty:
                 st.line_chart(daily.set_index("날짜"))
 
-            # 관련 게시글
-            st.subheader("📋 관련 게시글")
-            posts = run_query("""
-                SELECT p.post_date as "날짜", p.title as "제목", p.author as "작성자",
-                       CASE pm.sentiment WHEN 1 THEN '👍' WHEN -1 THEN '👎' ELSE '➖' END as "감성"
-                FROM post_mentions pm
-                JOIN posts p ON p.id = pm.post_id
-                WHERE pm.ticker_id = %s AND p.post_date BETWEEN %s AND %s
-                ORDER BY p.post_date DESC, p.id DESC
-                LIMIT 50
-            """, (int(ticker_id), start_date, end_date))
+            if not ticker_info.empty:
+                col1, col2, col3, col4 = st.columns(4)
+                col1.metric("💬 총 언급", f"{info['total_mentions']}")
+                col2.metric("👍 긍정", f"{info['positive']}")
+                col3.metric("👎 부정", f"{info['negative']}")
+                col4.metric("➖ 중립", f"{info['neutral']}")
 
-            if not posts.empty:
-                st.dataframe(posts, use_container_width=True, hide_index=True)
+            st.markdown("---")
+
+            # ── 전문가 ──
+            st.subheader("🔬 전문가 리포트")
+            ticker_symbol = ticker_info.iloc[0]['symbol'] if not ticker_info.empty else None
+            if ticker_symbol:
+                expert_stats = run_query("""
+                    SELECT COUNT(*) as "리포트 수",
+                           COUNT(DISTINCT ea.securities_firm) as "증권사 수",
+                           COUNT(*) FILTER (WHERE eam.opinion ILIKE '%%buy%%' OR eam.opinion = '매수') as "Buy",
+                           COUNT(*) FILTER (WHERE eam.opinion ILIKE '%%hold%%' OR eam.opinion = '중립') as "Hold",
+                           COUNT(*) FILTER (WHERE eam.opinion ILIKE '%%sell%%' OR eam.opinion = '매도') as "Sell"
+                    FROM expert_article_mentions eam
+                    JOIN tickers t ON t.id = eam.ticker_id
+                    JOIN expert_articles ea ON ea.id = eam.article_id
+                    WHERE t.symbol = %s AND ea.published_date BETWEEN %s AND %s
+                """, (ticker_symbol, start_date, end_date))
+
+                if not expert_stats.empty and expert_stats.iloc[0]['리포트 수'] > 0:
+                    es = expert_stats.iloc[0]
+                    ec1, ec2, ec3, ec4, ec5 = st.columns(5)
+                    ec1.metric("📄 리포트 수", f"{es['리포트 수']}")
+                    ec2.metric("🏢 증권사 수", f"{es['증권사 수']}")
+                    ec3.metric("📈 Buy", f"{es['Buy']}")
+                    ec4.metric("➖ Hold", f"{es['Hold']}")
+                    ec5.metric("📉 Sell", f"{es['Sell']}")
+                else:
+                    st.info("해당 기간에 전문가 리포트가 없습니다.")
 
 
 # ═══════════════════════════════════════════════════════
