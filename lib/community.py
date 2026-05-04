@@ -32,71 +32,6 @@ def page_overview(start_date, end_date):
 
     st.markdown("---")
 
-    # 일별 게시글 수 + 종목 언급 수 차트
-    col_left, col_right = st.columns(2)
-
-    with col_left:
-        st.subheader("📊 일별 게시글 수")
-        daily_posts = run_query("""
-            SELECT post_date as "날짜", COUNT(*) as "게시글 수"
-            FROM posts
-            WHERE post_date BETWEEN %s AND %s
-            GROUP BY post_date ORDER BY post_date
-        """, (start_date, end_date))
-        if not daily_posts.empty:
-            st.line_chart(daily_posts.set_index("날짜"))
-
-    with col_right:
-        st.subheader("💬 일별 종목 언급 수")
-        daily_mentions = run_query("""
-            SELECT p.post_date as "날짜", COUNT(*) as "언급 수"
-            FROM post_mentions pm
-            JOIN posts p ON p.id = pm.post_id
-            WHERE p.post_date BETWEEN %s AND %s
-            GROUP BY p.post_date ORDER BY p.post_date
-        """, (start_date, end_date))
-        if not daily_mentions.empty:
-            st.line_chart(daily_mentions.set_index("날짜"))
-
-    st.markdown("---")
-
-    # 감성 분포
-    col_left2, col_right2 = st.columns(2)
-
-    with col_left2:
-        st.subheader("😊 전체 감성 분포")
-        sentiment = run_query("""
-            SELECT
-                CASE pm.sentiment
-                    WHEN 1 THEN '👍 긍정'
-                    WHEN -1 THEN '👎 부정'
-                    ELSE '➖ 중립'
-                END as "감성",
-                COUNT(*) as "건수"
-            FROM post_mentions pm
-            JOIN posts p ON p.id = pm.post_id
-            WHERE p.post_date BETWEEN %s AND %s
-            GROUP BY pm.sentiment ORDER BY pm.sentiment DESC
-        """, (start_date, end_date))
-        if not sentiment.empty:
-            st.bar_chart(sentiment.set_index("감성"))
-
-    with col_right2:
-        st.subheader("🔥 TOP 10 언급 종목")
-        top_tickers = run_query("""
-            SELECT t.name as "종목", COUNT(*) as "언급 수"
-            FROM post_mentions pm
-            JOIN tickers t ON t.id = pm.ticker_id
-            JOIN posts p ON p.id = pm.post_id
-            WHERE p.post_date BETWEEN %s AND %s
-              AND t.market NOT IN ('THEME', 'CRYPTO')
-            GROUP BY t.name ORDER BY COUNT(*) DESC LIMIT 10
-        """, (start_date, end_date))
-        if not top_tickers.empty:
-            st.bar_chart(top_tickers.set_index("종목"))
-
-    st.markdown("---")
-
     # 일별 감성 변화 추이
     st.subheader("📈 일별 감성 변화 추이")
     sentiment_trend = run_query("""
@@ -111,6 +46,22 @@ def page_overview(start_date, end_date):
     """, (start_date, end_date))
     if not sentiment_trend.empty:
         st.line_chart(sentiment_trend.set_index("날짜"))
+
+    st.markdown("---")
+
+    # TOP 10 언급 종목
+    st.subheader("🔥 TOP 10 언급 종목")
+    top_tickers = run_query("""
+        SELECT t.name as "종목", COUNT(*) as "언급 수"
+        FROM post_mentions pm
+        JOIN tickers t ON t.id = pm.ticker_id
+        JOIN posts p ON p.id = pm.post_id
+        WHERE p.post_date BETWEEN %s AND %s
+          AND t.market NOT IN ('THEME', 'CRYPTO')
+        GROUP BY t.name ORDER BY COUNT(*) DESC LIMIT 10
+    """, (start_date, end_date))
+    if not top_tickers.empty:
+        st.bar_chart(top_tickers.set_index("종목"))
 
 
 def page_mention_ranking(start_date, end_date):
