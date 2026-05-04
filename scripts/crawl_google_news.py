@@ -13,10 +13,12 @@ from datetime import date, datetime
 from email.utils import parsedate_to_datetime
 import re
 import logging
+import os
 import sys
 
 # ─── 로깅 설정 ──────────────────────────────────────────
-LOG_DIR = "/Users/suyeongpark/Dev/Suyeongpark/human-index/logs"
+LOG_DIR = os.path.join(os.path.dirname(__file__), "..", "logs")
+os.makedirs(LOG_DIR, exist_ok=True)
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
