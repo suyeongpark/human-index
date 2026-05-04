@@ -4,7 +4,7 @@ Human Index Dashboard
 """
 
 import streamlit as st
-import streamlit_analytics2 as streamlit_analytics
+
 from lib.shared import run_query
 from lib import community, expert, combined
 
@@ -175,6 +175,5 @@ PAGE_MAP = {
 }
 
 page = st.session_state.page
-with streamlit_analytics.track():
-    if page in PAGE_MAP:
-        PAGE_MAP[page](start_date, end_date)
+if page in PAGE_MAP:
+    PAGE_MAP[page](start_date, end_date)
