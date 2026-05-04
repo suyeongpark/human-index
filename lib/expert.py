@@ -79,13 +79,20 @@ def page_report_ranking(start_date, end_date):
                COUNT(DISTINCT ea.securities_firm) as "증권사 수",
                COUNT(*) FILTER (WHERE eam.opinion ILIKE '%%buy%%' OR eam.opinion = '매수') as "Buy",
                COUNT(*) FILTER (WHERE eam.opinion ILIKE '%%hold%%' OR eam.opinion = '중립') as "Hold",
-               COUNT(*) FILTER (WHERE eam.opinion ILIKE '%%sell%%' OR eam.opinion = '매도') as "Sell"
+               COUNT(*) FILTER (WHERE eam.opinion ILIKE '%%sell%%' OR eam.opinion = '매도') as "Sell",
+               ROUND(100.0 * COUNT(*) FILTER (WHERE eam.sentiment = 1) / NULLIF(COUNT(*), 0), 1) as "긍정률(%%)",
+               ROUND(((AVG(eam.sentiment) + 1) * 50)::numeric, 1) as "감성 점수",
+               ROUND(
+                   2.0 * COUNT(*) FILTER (WHERE eam.sentiment = 1) +
+                   0.5 * COUNT(*) FILTER (WHERE eam.sentiment = -1) +
+                   1.0 * COUNT(*) FILTER (WHERE eam.sentiment = 0)
+               , 1) as "가중 점수"
         FROM expert_article_mentions eam
         JOIN tickers t ON t.id = eam.ticker_id
         JOIN expert_articles ea ON ea.id = eam.article_id
         WHERE ea.published_date BETWEEN %s AND %s
         GROUP BY t.symbol, t.name
-        ORDER BY COUNT(*) DESC
+        ORDER BY "가중 점수" DESC
         LIMIT %s
     """, (start_date, end_date, rpt_limit))
 

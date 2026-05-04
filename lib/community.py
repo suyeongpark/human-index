@@ -4,7 +4,7 @@
 
 import streamlit as st
 from datetime import timedelta
-from lib.shared import run_query, navigate_to, SCORE_WEIGHT_POSITIVE, SCORE_WEIGHT_NEGATIVE, SCORE_WEIGHT_NEUTRAL
+from lib.shared import run_query, SCORE_WEIGHT_POSITIVE, SCORE_WEIGHT_NEGATIVE, SCORE_WEIGHT_NEUTRAL
 
 
 def page_overview(start_date, end_date):
@@ -111,48 +111,24 @@ def page_mention_ranking(start_date, end_date):
                COUNT(*) FILTER (WHERE pm.sentiment = -1) as "👎 부정",
                COUNT(*) FILTER (WHERE pm.sentiment = 0) as "➖ 중립",
                ROUND(100.0 * COUNT(*) FILTER (WHERE pm.sentiment = 1) / NULLIF(COUNT(*), 0), 1) as "긍정률(%%)",
+               ROUND(((AVG(pm.sentiment) + 1) * 50)::numeric, 1) as "감성 점수",
                ROUND(
                    %s * COUNT(*) FILTER (WHERE pm.sentiment = 1) +
                    %s * COUNT(*) FILTER (WHERE pm.sentiment = -1) +
                    %s * COUNT(*) FILTER (WHERE pm.sentiment = 0)
-               , 1) as "⭐ 점수"
+               , 1) as "가중 점수"
         FROM post_mentions pm
         JOIN tickers t ON t.id = pm.ticker_id
         JOIN posts p ON p.id = pm.post_id
         WHERE p.post_date BETWEEN %s AND %s
         GROUP BY t.symbol, t.name, t.market
-        ORDER BY "⭐ 점수" DESC
+        ORDER BY "가중 점수" DESC
         LIMIT %s
     """, (SCORE_WEIGHT_POSITIVE, SCORE_WEIGHT_NEGATIVE, SCORE_WEIGHT_NEUTRAL,
           start_date, end_date, rank_limit))
 
     if not ranking.empty:
-        # 헤더
-        hdr = st.columns([0.5, 1.2, 1.5, 0.6, 0.6, 0.6, 0.6, 0.6, 0.7, 0.8, 0.5, 0.5])
-        headers = ["#", "심볼", "종목명", "시장", "총언급", "👍", "👎", "➖", "긍정률", "⭐점수", "", ""]
-        for h, label in zip(hdr, headers):
-            h.markdown(f"**{label}**")
-        st.markdown("<hr style='margin:0.2rem 0'>", unsafe_allow_html=True)
-
-        # 행
-        for idx, row in ranking.iterrows():
-            cols = st.columns([0.5, 1.2, 1.5, 0.6, 0.6, 0.6, 0.6, 0.6, 0.7, 0.8, 0.5, 0.5])
-            cols[0].write(f"{idx + 1}")
-            cols[1].write(row["심볼"])
-            cols[2].write(row["종목명"])
-            cols[3].write(row["시장"])
-            cols[4].write(str(row["총 언급"]))
-            cols[5].write(str(row["👍 긍정"]))
-            cols[6].write(str(row["👎 부정"]))
-            cols[7].write(str(row["➖ 중립"]))
-            cols[8].write(f"{row['긍정률(%)'] or 0}%")
-            cols[9].write(f"**{row['⭐ 점수']}**")
-            if cols[10].button("🔍", key=f"tk_{idx}", help="종목 검색"):
-                navigate_to("🔍 종목 검색", ticker_symbol=row["심볼"])
-                st.rerun()
-            if cols[11].button("📋", key=f"ps_{idx}", help="게시글 검색"):
-                navigate_to("📋 게시글 목록", filter_symbol=row["심볼"])
-                st.rerun()
+        st.dataframe(ranking, use_container_width=True, hide_index=True, height=800)
     else:
         st.info("데이터가 없습니다.")
 
