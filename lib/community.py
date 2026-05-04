@@ -225,65 +225,82 @@ def page_post_list(start_date, end_date):
         st.session_state.posts_page = 0
 
     default_keyword = st.session_state.nav_search_keyword or ""
-    search = st.text_input("🔎 제목 검색", value=default_keyword, placeholder="검색어를 입력하세요")
+
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        search = st.text_input("🔎 제목 검색", value=default_keyword, placeholder="검색어를 입력하세요")
+    with col2:
+        comms = run_query("""
+            SELECT DISTINCT c.name FROM communities c
+            JOIN posts p ON p.community_id = c.id
+            WHERE p.post_date BETWEEN %s AND %s
+            ORDER BY c.name
+        """, (start_date, end_date))
+        comm_list = ["전체"] + comms["name"].tolist()
+        selected_comm = st.selectbox("📢 커뮤니티", comm_list, key="posts_comm")
+
     if st.session_state.nav_search_keyword:
         st.session_state.nav_search_keyword = None
 
     page = st.session_state.posts_page
     offset = page * PAGE_SIZE
 
+    # 동적 쿼리 조건
+    conditions = ["p.post_date BETWEEN %s AND %s"]
+    params = [start_date, end_date]
+
     if filter_symbol:
         st.info(f"🎯 종목 필터: {filter_symbol}")
-        count_df = run_query("""
+        conditions.append("t_filter.symbol = %s")
+        params.append(filter_symbol)
+    if search:
+        conditions.append("p.title ILIKE %s")
+        params.append(f"%{search}%")
+    if selected_comm != "전체":
+        conditions.append("c.name = %s")
+        params.append(selected_comm)
+
+    where = " AND ".join(conditions)
+
+    # 총 건수
+    if filter_symbol:
+        count_df = run_query(f"""
             SELECT COUNT(DISTINCT p.id) as cnt
             FROM posts p
+            JOIN communities c ON c.id = p.community_id
             JOIN post_mentions pm ON pm.post_id = p.id
-            JOIN tickers t ON t.id = pm.ticker_id AND t.symbol = %s
-            WHERE p.post_date BETWEEN %s AND %s
-        """, (filter_symbol, start_date, end_date))
-        total = int(count_df["cnt"].iloc[0]) if len(count_df) > 0 else 0
-        posts_df = run_query("""
+            JOIN tickers t_filter ON t_filter.id = pm.ticker_id
+            WHERE {where}
+        """, params)
+    else:
+        count_df = run_query(f"""
+            SELECT COUNT(*) as cnt
+            FROM posts p
+            JOIN communities c ON c.id = p.community_id
+            WHERE {where}
+        """, params)
+    total = int(count_df["cnt"].iloc[0]) if len(count_df) > 0 else 0
+
+    # 데이터 조회
+    query_params = params + [PAGE_SIZE, offset]
+    if filter_symbol:
+        posts_df = run_query(f"""
             SELECT p.post_date as "날짜", c.name as "커뮤니티", p.title as "제목", p.author as "작성자",
                    STRING_AGG(DISTINCT t2.name, ', ') as "언급 종목",
                    p.source_url as "링크"
             FROM posts p
             JOIN communities c ON c.id = p.community_id
             JOIN post_mentions pm ON pm.post_id = p.id
-            JOIN tickers t ON t.id = pm.ticker_id AND t.symbol = %s
+            JOIN tickers t_filter ON t_filter.id = pm.ticker_id
             LEFT JOIN post_mentions pm2 ON pm2.post_id = p.id
             LEFT JOIN tickers t2 ON t2.id = pm2.ticker_id
-            WHERE p.post_date BETWEEN %s AND %s
+            WHERE {where}
             GROUP BY p.id, p.post_date, c.name, p.title, p.author, p.source_url
             ORDER BY p.post_date DESC, p.id DESC
             LIMIT %s OFFSET %s
-        """, (filter_symbol, start_date, end_date, PAGE_SIZE, offset))
-    elif search:
-        count_df = run_query("""
-            SELECT COUNT(*) as cnt FROM posts p
-            WHERE p.post_date BETWEEN %s AND %s AND p.title ILIKE %s
-        """, (start_date, end_date, f"%{search}%"))
-        total = int(count_df["cnt"].iloc[0]) if len(count_df) > 0 else 0
-        posts_df = run_query("""
-            SELECT p.post_date as "날짜", c.name as "커뮤니티", p.title as "제목", p.author as "작성자",
-                   STRING_AGG(t.name, ', ') as "언급 종목",
-                   p.source_url as "링크"
-            FROM posts p
-            JOIN communities c ON c.id = p.community_id
-            LEFT JOIN post_mentions pm ON pm.post_id = p.id
-            LEFT JOIN tickers t ON t.id = pm.ticker_id
-            WHERE p.post_date BETWEEN %s AND %s
-              AND p.title ILIKE %s
-            GROUP BY p.id, p.post_date, c.name, p.title, p.author, p.source_url
-            ORDER BY p.post_date DESC, p.id DESC
-            LIMIT %s OFFSET %s
-        """, (start_date, end_date, f"%{search}%", PAGE_SIZE, offset))
+        """, query_params)
     else:
-        count_df = run_query("""
-            SELECT COUNT(*) as cnt FROM posts p
-            WHERE p.post_date BETWEEN %s AND %s
-        """, (start_date, end_date))
-        total = int(count_df["cnt"].iloc[0]) if len(count_df) > 0 else 0
-        posts_df = run_query("""
+        posts_df = run_query(f"""
             SELECT p.post_date as "날짜", c.name as "커뮤니티", p.title as "제목", p.author as "작성자",
                    STRING_AGG(t.name, ', ') as "언급 종목",
                    p.source_url as "링크"
@@ -291,11 +308,11 @@ def page_post_list(start_date, end_date):
             JOIN communities c ON c.id = p.community_id
             LEFT JOIN post_mentions pm ON pm.post_id = p.id
             LEFT JOIN tickers t ON t.id = pm.ticker_id
-            WHERE p.post_date BETWEEN %s AND %s
+            WHERE {where}
             GROUP BY p.id, p.post_date, c.name, p.title, p.author, p.source_url
             ORDER BY p.post_date DESC, p.id DESC
             LIMIT %s OFFSET %s
-        """, (start_date, end_date, PAGE_SIZE, offset))
+        """, query_params)
 
     total_pages = max(1, (total + PAGE_SIZE - 1) // PAGE_SIZE)
 
