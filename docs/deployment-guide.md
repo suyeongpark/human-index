@@ -1,281 +1,164 @@
 # Human Index - 클라우드 배포 가이드
 
-> 로컬 환경에서 Supabase + Streamlit Community Cloud로 이전하여 어디서든 접속 가능한 대시보드를 구축하는 가이드
+> Supabase + Streamlit Cloud + GitHub Actions로 24/7 무중단 시스템 구축
 
 ## 전체 아키텍처
 
 ```
-┌─────────────────┐         ┌─────────────────┐         ┌─────────────────────┐
-│   Mac (로컬)     │         │  Supabase (무료) │         │ Streamlit Cloud(무료)│
-│                 │  INSERT  │                 │  SELECT  │                     │
-│ daily_worker.py ├────────→│  PostgreSQL DB  │←────────┤  app.py 대시보드     │
-│ crawl_hankyung  │         │  (500MB 무료)    │         │                     │
-│                 │         │                 │         │  https://xxx.        │
-│ launchd 스케줄   │         │  항상 켜져있음    │         │  streamlit.app      │
-└─────────────────┘         └─────────────────┘         └─────────────────────┘
-    매일 09:00/18:30              클라우드 DB                어디서든 접속 가능
+┌─────────────────────┐       ┌─────────────────┐       ┌─────────────────────┐
+│  GitHub Actions      │       │  Supabase (무료)  │       │ Streamlit Cloud(무료)│
+│                     │INSERT  │                 │SELECT  │                     │
+│ daily_worker.py     ├───────→│  PostgreSQL DB  │←──────┤  app.py 대시보드      │
+│ crawl_hankyung.py   │       │  (500MB 무료)    │       │                     │
+│ crawl_google_news.py│       │  항상 켜져있음    │       │  human-index.       │
+│                     │       │                 │       │  streamlit.app      │
+│ 1시간/6시간/평일     │       └─────────────────┘       └─────────────────────┘
+└─────────────────────┘           클라우드 DB               어디서든 접속 가능
+   24/7 GitHub Actions
+                              ┌─────────────────┐
+                              │  Mac (로컬 백업)  │
+                              │ launchd 스케줄    │
+                              │ 동일 크롤러 병행   │
+                              └────────┬─────────┘
+                                       │ INSERT (중복 자동 무시)
+                                       └─────────→  Supabase
 ```
 
 ---
 
-## 체크리스트
+## 운영 현황
 
-- [ ] **Phase 1**: Supabase 프로젝트 생성 & DB 설정
-- [ ] **Phase 2**: 로컬 DB → Supabase 데이터 마이그레이션
-- [ ] **Phase 3**: 코드 수정 (DB 접속 정보 분리)
-- [ ] **Phase 4**: 크롤러 동작 확인 (Supabase 대상)
-- [ ] **Phase 5**: Streamlit Cloud 배포
-- [ ] **Phase 6**: 최종 검증 & 로컬 정리
+### 배포 서비스
 
----
+| 서비스 | 용도 | URL / 설정 |
+|--------|------|-----------|
+| **Streamlit Cloud** | 대시보드 | [human-index.streamlit.app](https://human-index-fbsfdag8sk7hcpfedhrm9h.streamlit.app/) |
+| **Supabase** | PostgreSQL DB | 서울 리전, Session Pooler 사용 |
+| **GitHub Actions** | 크롤러 자동화 | Repository secrets로 DB 접속 |
 
-## Phase 1: Supabase 프로젝트 생성
+### 크롤러 스케줄
 
-### 1-1. 가입 및 프로젝트 생성
-
-1. [supabase.com](https://supabase.com) 접속 → GitHub 계정으로 가입
-2. **New Project** 클릭
-   - Organization: 본인 계정
-   - Project name: `human-index`
-   - Database Password: **안전한 비밀번호 설정** (메모해둘 것)
-   - Region: **South Korea (Seoul)** — 한국 리전이 없으면 Northeast Asia (Tokyo)
-3. 프로젝트 생성 완료까지 약 1~2분 대기
-
-### 1-2. DB 접속 정보 확인
-
-1. Supabase 대시보드 → **Settings** → **Database**
-2. **Connection string** 섹션에서 확인:
-   - Host: `db.xxxxxxxxxxxx.supabase.co`
-   - Port: `5432`
-   - Database: `postgres`
-   - User: `postgres`
-   - Password: 프로젝트 생성 시 설정한 비밀번호
-
-> [!IMPORTANT]
-> 이 정보를 메모해두세요. Phase 3에서 사용합니다.
-
-### 1-3. 테이블 생성
-
-Supabase 대시보드 → **SQL Editor** 에서 `docs/init-db.sql` 내용을 실행합니다.
-
-또는 로컬 터미널에서:
-
-```bash
-psql "postgresql://postgres:<PASSWORD>@db.<PROJECT_REF>.supabase.co:5432/postgres" \
-  -f docs/init-db.sql
-```
+| 크롤러 | GitHub Actions (주력) | macOS launchd (백업) |
+|--------|---------------------|-------------------|
+| 커뮤니티 (MLBPark, 클리앙, 에펨코리아) | 1시간마다 | 1시간마다 |
+| 한경 리포트 | 평일 18:30 | 1일 1회 |
+| Google News RSS | 6시간마다 | 6시간마다 |
 
 ---
 
-## Phase 2: 데이터 마이그레이션
+## GitHub Actions 설정
 
-### 2-1. 로컬 DB 덤프
+### Repository Secrets
 
-```bash
-# 로컬 PostgreSQL 데이터를 SQL 파일로 내보내기
-pg_dump -h localhost -U $(whoami) -d human_index \
-  --data-only --inserts \
-  -t communities \
-  -t tickers \
-  -t posts \
-  -t post_mentions \
-  -t mention_daily_stats \
-  -t mention_trend_alerts \
-  -t expert_sources \
-  -t expert_articles \
-  -t expert_article_mentions \
-  > data_dump.sql
-```
+Settings → Secrets and variables → Actions → **Repository secrets**:
 
-### 2-2. Supabase에 데이터 복원
+| Secret | 설명 |
+|--------|------|
+| `DB_NAME` | Supabase 데이터베이스 이름 (`postgres`) |
+| `DB_HOST` | Supabase Session Pooler 호스트 |
+| `DB_PORT` | 포트 (`5432`) |
+| `DB_USER` | 유저명 (`postgres.{project_ref}` 형태) |
+| `DB_PASSWORD` | Supabase DB 비밀번호 |
 
-```bash
-psql "postgresql://postgres:<PASSWORD>@db.<PROJECT_REF>.supabase.co:5432/postgres" \
-  -f data_dump.sql
-```
+### 워크플로우 파일
 
-### 2-3. 데이터 검증
+| 파일 | cron (UTC) | 한국시간 |
+|------|-----------|---------|
+| `.github/workflows/crawl-community.yml` | `0 * * * *` | 매 정시 |
+| `.github/workflows/crawl-hankyung.yml` | `30 9 * * 1-5` | 평일 18:30 |
+| `.github/workflows/crawl-google-news.yml` | `0 0,6,12,18 * * *` | 09/15/21/03시 |
 
-```bash
-# 로컬 건수 확인
-psql -d human_index -c "SELECT 'posts' as t, COUNT(*) FROM posts UNION ALL SELECT 'tickers', COUNT(*) FROM tickers UNION ALL SELECT 'expert_articles', COUNT(*) FROM expert_articles;"
+### 수동 실행
 
-# Supabase 건수 확인 (동일해야 함)
-psql "postgresql://postgres:<PASSWORD>@db.<PROJECT_REF>.supabase.co:5432/postgres" \
-  -c "SELECT 'posts' as t, COUNT(*) FROM posts UNION ALL SELECT 'tickers', COUNT(*) FROM tickers UNION ALL SELECT 'expert_articles', COUNT(*) FROM expert_articles;"
-```
+Actions 탭 → 워크플로우 선택 → **Run workflow** 버튼
 
 ---
 
-## Phase 3: 코드 수정
+## Streamlit Cloud 설정
 
-### 3-1. 환경변수 기반 DB 접속으로 변경
+### Secrets
 
-`lib/shared.py`의 DB_CONFIG를 환경변수에서 읽도록 수정:
-
-```python
-import os
-
-DB_CONFIG = {
-    "dbname": os.environ.get("DB_NAME", "human_index"),
-    "host": os.environ.get("DB_HOST", "localhost"),
-    "port": int(os.environ.get("DB_PORT", 5432)),
-    "user": os.environ.get("DB_USER", ""),
-    "password": os.environ.get("DB_PASSWORD", ""),
-}
-```
-
-> [!TIP]
-> 로컬에서는 환경변수가 없으면 기존 값(localhost)을 사용하므로 호환성이 유지됩니다.
-
-### 3-2. Streamlit secrets 설정 파일 생성
-
-```bash
-mkdir -p .streamlit
-```
-
-`.streamlit/secrets.toml` (로컬 테스트용, **git에 커밋하지 않음**):
+Streamlit Cloud → Manage app → Settings → Secrets:
 
 ```toml
 [database]
 DB_NAME = "postgres"
-DB_HOST = "db.xxxxxxxxxxxx.supabase.co"
+DB_HOST = "aws-1-ap-northeast-2.pooler.supabase.com"
 DB_PORT = 5432
-DB_USER = "postgres"
-DB_PASSWORD = "your-password-here"
+DB_USER = "postgres.{project_ref}"
+DB_PASSWORD = "your-password"
 ```
 
-### 3-3. .gitignore에 secrets 추가
+### 자동 배포
 
-```
-.streamlit/secrets.toml
-```
-
-### 3-4. requirements.txt 생성
-
-```
-streamlit
-psycopg2-binary
-pandas
-```
+- `main` 브랜치 push 시 **자동 재배포**
+- `requirements.txt` 변경 시 패키지 재설치 (3~5분 소요)
+- 코드만 변경 시 1~2분 소요
 
 ---
 
-## Phase 4: 크롤러 동작 확인
+## 로컬 백업 (macOS launchd)
 
-### 4-1. 크롤러 스크립트의 DB 접속도 환경변수화
+### plist 파일 위치
 
-각 스크립트(`scripts/daily_worker.py`, `scripts/crawl_hankyung.py` 등)의 DB 접속 부분을 동일하게 환경변수로 수정합니다.
-
-### 4-2. 환경변수 설정 (로컬 Mac)
-
-`~/.zshrc`에 추가:
-
-```bash
-export DB_NAME="postgres"
-export DB_HOST="db.xxxxxxxxxxxx.supabase.co"
-export DB_PORT="5432"
-export DB_USER="postgres"
-export DB_PASSWORD="your-password-here"
+```
+~/Library/LaunchAgents/
+├── com.humanindex.daily-worker.plist        # 커뮤니티 (1시간)
+├── com.humanindex.hankyung-crawler.plist    # 한경 리포트
+└── com.humanindex.google-news-crawler.plist # Google News (6시간)
 ```
 
-```bash
-source ~/.zshrc
-```
-
-### 4-3. 테스트 실행
+### 관리 명령어
 
 ```bash
-# 크롤러 테스트 (소량)
-python scripts/daily_worker.py
+# 등록
+launchctl load ~/Library/LaunchAgents/com.humanindex.daily-worker.plist
 
-# 대시보드 테스트 (Supabase 연결 확인)
-streamlit run app.py
+# 해제
+launchctl unload ~/Library/LaunchAgents/com.humanindex.daily-worker.plist
+
+# 상태 확인
+launchctl list | grep humanindex
 ```
 
-### 4-4. launchd plist 업데이트
-
-plist 파일에 환경변수를 추가하거나, 스크립트 내부에서 `.env` 파일을 읽도록 수정합니다.
+> GitHub Actions와 로컬 launchd가 동시에 돌아도 `source_url` 기준 `ON CONFLICT DO NOTHING`으로 중복 데이터가 발생하지 않습니다.
 
 ---
 
-## Phase 5: Streamlit Cloud 배포
+## DB 접속 구조
 
-### 5-1. GitHub 리포지토리 push
+### 우선순위 (스크립트 - `scripts/db_config.py`)
 
-```bash
-git push origin main
-```
+1. `.streamlit/secrets.toml` (로컬 개발)
+2. 환경변수 (`DB_HOST` 등) (GitHub Actions, launchd)
+3. 기본값 (`localhost`) (폴백)
 
-### 5-2. Streamlit Cloud 앱 생성
+### 우선순위 (대시보드 - `lib/shared.py`)
 
-1. [share.streamlit.io](https://share.streamlit.io) 접속 → GitHub 로그인
-2. **New app** 클릭
-3. 설정:
-   - Repository: `Suyeongpark/human-index`
-   - Branch: `main`
-   - Main file path: `app.py`
-4. **Advanced settings** → **Secrets** 에 DB 접속 정보 입력:
-
-```toml
-[database]
-DB_NAME = "postgres"
-DB_HOST = "db.xxxxxxxxxxxx.supabase.co"
-DB_PORT = 5432
-DB_USER = "postgres"
-DB_PASSWORD = "your-password-here"
-```
-
-5. **Deploy** 클릭
-
-### 5-3. 배포 확인
-
-- URL: `https://human-index.streamlit.app` (또는 자동 생성된 URL)
-- 모든 페이지 정상 동작 확인
-- 모바일에서도 접속 확인
+1. Streamlit secrets (`st.secrets["database"]`) (Streamlit Cloud)
+2. 환경변수 (로컬 개발)
+3. 기본값 (`localhost`)
 
 ---
 
-## Phase 6: 최종 검증 & 정리
+## 무료 사용량
 
-### 6-1. 전체 플로우 테스트
-
-```
-1. Mac에서 크롤러 실행 → Supabase에 데이터 적재 확인
-2. Streamlit Cloud 대시보드에서 새 데이터 반영 확인
-3. 모바일/다른 PC에서 접속 확인
-```
-
-### 6-2. 로컬 DB 유지 여부 결정
-
-| 선택 | 설명 |
-|------|------|
-| 유지 | 백업 용도로 로컬 DB도 계속 운영 |
-| 제거 | Supabase만 사용, 로컬 PostgreSQL 중단 |
-
-> [!TIP]
-> 초기에는 로컬 DB를 백업으로 유지하는 것을 권장합니다.
-
----
-
-## 무료 사용량 한도
-
-| 서비스 | 무료 한도 | 현재 예상 사용량 |
-|--------|----------|----------------|
-| **Supabase** | DB 500MB, API 무제한 | ~50MB (충분) |
+| 서비스 | 무료 한도 | 월 예상 사용량 |
+|--------|----------|-------------|
+| **GitHub Actions** | 2,000분/월 | ~780분 |
+| **Supabase** | DB 500MB, API 무제한 | ~50MB |
 | **Streamlit Cloud** | 앱 1개, 1GB RAM | 충분 |
 
-> [!WARNING]
-> Supabase 무료 플랜은 7일 미접속 시 DB가 일시정지될 수 있습니다.
-> 매일 크롤러가 접속하므로 정지될 일은 없지만, 크롤러가 중단되면 주의가 필요합니다.
+> **주의**: Supabase 무료 플랜은 7일 미접속 시 DB 일시정지 가능. 크롤러가 상시 접속하므로 정지될 일 없음.
 
 ---
 
-## 향후 확장
+## 트러블슈팅
 
-배포 완료 후 추가 가능한 작업:
-
-- [ ] 새 커뮤니티 크롤러 추가 (디시인사이드, 네이버 종토방 등)
-- [ ] 새 전문가 소스 추가 (네이버 증권 리서치 등)
-- [ ] 커스텀 도메인 연결 (Streamlit Cloud 유료 플랜)
-- [ ] Supabase Edge Functions로 크롤러 서버리스 전환 (Mac 의존 제거)
+| 증상 | 원인 | 해결 |
+|------|------|------|
+| GitHub Actions 크롤러 실패 | DB 접속 정보 오류 | Repository secrets 확인 (특히 `DB_USER` 형식) |
+| Streamlit Cloud 에러 | 패키지 호환성 | `requirements.txt` 확인, `.python-version` = 3.11 |
+| 로컬 launchd 미실행 | Mac 잠자기 모드 | `sudo pmset -c sleep 0` 또는 GitHub Actions 의존 |
+| 데이터 중복 | - | `source_url` 유니크 제약으로 자동 방지 |
+| cron 지연 (±20분) | GitHub Actions 특성 | 정상 동작, 정확한 타이밍 불필요 |
