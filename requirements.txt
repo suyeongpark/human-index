@@ -1,3 +1,4 @@
 streamlit
 psycopg2-binary
 pandas
+streamlit-analytics2
