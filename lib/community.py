@@ -212,23 +212,35 @@ def page_post_list(start_date, end_date):
     """📋 게시글 목록"""
     st.title("📋 게시글 목록")
 
+    PAGE_SIZE = 25
+
     # 랭킹에서 종목 필터로 넘어온 경우
     filter_symbol = st.session_state.nav_filter_symbol
     if filter_symbol:
         st.session_state.nav_filter_symbol = None
 
-    col1, col2 = st.columns([3, 1])
-    with col1:
-        default_keyword = st.session_state.nav_search_keyword or ""
-        search = st.text_input("🔎 제목 검색", value=default_keyword, placeholder="검색어를 입력하세요")
-        if st.session_state.nav_search_keyword:
-            st.session_state.nav_search_keyword = None
-    with col2:
-        limit = st.selectbox("표시 건수", [50, 100, 200, 500], index=0)
+    # 페이지 상태 초기화
+    if "posts_page" not in st.session_state:
+        st.session_state.posts_page = 0
+
+    default_keyword = st.session_state.nav_search_keyword or ""
+    search = st.text_input("🔎 제목 검색", value=default_keyword, placeholder="검색어를 입력하세요")
+    if st.session_state.nav_search_keyword:
+        st.session_state.nav_search_keyword = None
+
+    page = st.session_state.posts_page
+    offset = page * PAGE_SIZE
 
     if filter_symbol:
-        # 종목 심볼로 post_mentions 조인 필터
         st.info(f"🎯 종목 필터: {filter_symbol}")
+        count_df = run_query("""
+            SELECT COUNT(DISTINCT p.id) as cnt
+            FROM posts p
+            JOIN post_mentions pm ON pm.post_id = p.id
+            JOIN tickers t ON t.id = pm.ticker_id AND t.symbol = %s
+            WHERE p.post_date BETWEEN %s AND %s
+        """, (filter_symbol, start_date, end_date))
+        total = int(count_df["cnt"].iloc[0]) if len(count_df) > 0 else 0
         posts_df = run_query("""
             SELECT p.post_date as "날짜", c.name as "커뮤니티", p.title as "제목", p.author as "작성자",
                    STRING_AGG(DISTINCT t2.name, ', ') as "언급 종목",
@@ -242,9 +254,14 @@ def page_post_list(start_date, end_date):
             WHERE p.post_date BETWEEN %s AND %s
             GROUP BY p.id, p.post_date, c.name, p.title, p.author, p.source_url
             ORDER BY p.post_date DESC, p.id DESC
-            LIMIT %s
-        """, (filter_symbol, start_date, end_date, limit))
+            LIMIT %s OFFSET %s
+        """, (filter_symbol, start_date, end_date, PAGE_SIZE, offset))
     elif search:
+        count_df = run_query("""
+            SELECT COUNT(*) as cnt FROM posts p
+            WHERE p.post_date BETWEEN %s AND %s AND p.title ILIKE %s
+        """, (start_date, end_date, f"%{search}%"))
+        total = int(count_df["cnt"].iloc[0]) if len(count_df) > 0 else 0
         posts_df = run_query("""
             SELECT p.post_date as "날짜", c.name as "커뮤니티", p.title as "제목", p.author as "작성자",
                    STRING_AGG(t.name, ', ') as "언급 종목",
@@ -257,9 +274,14 @@ def page_post_list(start_date, end_date):
               AND p.title ILIKE %s
             GROUP BY p.id, p.post_date, c.name, p.title, p.author, p.source_url
             ORDER BY p.post_date DESC, p.id DESC
-            LIMIT %s
-        """, (start_date, end_date, f"%{search}%", limit))
+            LIMIT %s OFFSET %s
+        """, (start_date, end_date, f"%{search}%", PAGE_SIZE, offset))
     else:
+        count_df = run_query("""
+            SELECT COUNT(*) as cnt FROM posts p
+            WHERE p.post_date BETWEEN %s AND %s
+        """, (start_date, end_date))
+        total = int(count_df["cnt"].iloc[0]) if len(count_df) > 0 else 0
         posts_df = run_query("""
             SELECT p.post_date as "날짜", c.name as "커뮤니티", p.title as "제목", p.author as "작성자",
                    STRING_AGG(t.name, ', ') as "언급 종목",
@@ -271,12 +293,14 @@ def page_post_list(start_date, end_date):
             WHERE p.post_date BETWEEN %s AND %s
             GROUP BY p.id, p.post_date, c.name, p.title, p.author, p.source_url
             ORDER BY p.post_date DESC, p.id DESC
-            LIMIT %s
-        """, (start_date, end_date, limit))
+            LIMIT %s OFFSET %s
+        """, (start_date, end_date, PAGE_SIZE, offset))
 
-    st.caption(f"총 {len(posts_df)}건 표시")
+    total_pages = max(1, (total + PAGE_SIZE - 1) // PAGE_SIZE)
+
+    st.caption(f"총 {total}건 | 페이지 {page + 1} / {total_pages}")
     st.dataframe(
-        posts_df, use_container_width=True, hide_index=True, height=800,
+        posts_df, use_container_width=True, hide_index=True, height=700,
         column_config={
             "날짜": st.column_config.DateColumn("날짜", width="small"),
             "커뮤니티": st.column_config.TextColumn("커뮤니티", width="small"),
@@ -286,4 +310,15 @@ def page_post_list(start_date, end_date):
             "링크": st.column_config.LinkColumn("링크", display_text="🔗", width="small"),
         }
     )
+
+    # 페이지 네비게이션
+    col_prev, col_info, col_next = st.columns([1, 2, 1])
+    with col_prev:
+        if st.button("⬅️ 이전", disabled=(page == 0), key="posts_prev"):
+            st.session_state.posts_page = page - 1
+            st.rerun()
+    with col_next:
+        if st.button("➡️ 다음", disabled=(page >= total_pages - 1), key="posts_next"):
+            st.session_state.posts_page = page + 1
+            st.rerun()
 

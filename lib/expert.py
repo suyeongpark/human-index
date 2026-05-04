@@ -106,7 +106,13 @@ def page_report_list(start_date, end_date):
     """📋 리포트 목록"""
     st.title("📋 증권사 리포트 목록")
 
-    col1, col2, col3 = st.columns([3, 1, 1])
+    PAGE_SIZE = 25
+
+    # 페이지 상태 초기화
+    if "rpt_page" not in st.session_state:
+        st.session_state.rpt_page = 0
+
+    col1, col2 = st.columns([3, 1])
     with col1:
         rpt_search = st.text_input("🔎 제목 검색", placeholder="종목명 또는 키워드", key="rpt_search")
     with col2:
@@ -117,8 +123,6 @@ def page_report_list(start_date, end_date):
         """, (start_date, end_date))
         firm_list = ["전체"] + firms["securities_firm"].tolist()
         selected_firm = st.selectbox("🏢 증권사", firm_list, key="rpt_firm")
-    with col3:
-        rpt_lim = st.selectbox("표시 건수", [50, 100, 200, 500], key="rpt_list_limit")
 
     # 쿼리 조건
     conditions = ["ea.published_date BETWEEN %s AND %s"]
@@ -131,8 +135,17 @@ def page_report_list(start_date, end_date):
         conditions.append("ea.securities_firm = %s")
         params.append(selected_firm)
 
-    params.append(rpt_lim)
     where = " AND ".join(conditions)
+
+    # 총 건수 조회
+    count_df = run_query(f"""
+        SELECT COUNT(*) as cnt FROM expert_articles ea WHERE {where}
+    """, params)
+    total = int(count_df["cnt"].iloc[0]) if len(count_df) > 0 else 0
+
+    page = st.session_state.rpt_page
+    offset = page * PAGE_SIZE
+    query_params = params + [PAGE_SIZE, offset]
 
     rpt_df = run_query(f"""
         SELECT ea.published_date as "날짜", ea.title as "제목",
@@ -145,12 +158,14 @@ def page_report_list(start_date, end_date):
         LEFT JOIN tickers t ON t.id = eam.ticker_id
         WHERE {where}
         ORDER BY ea.published_date DESC, ea.id DESC
-        LIMIT %s
-    """, params)
+        LIMIT %s OFFSET %s
+    """, query_params)
 
-    st.caption(f"총 {len(rpt_df)}건 표시")
+    total_pages = max(1, (total + PAGE_SIZE - 1) // PAGE_SIZE)
+
+    st.caption(f"총 {total}건 | 페이지 {page + 1} / {total_pages}")
     st.dataframe(
-        rpt_df, use_container_width=True, hide_index=True, height=800,
+        rpt_df, use_container_width=True, hide_index=True, height=700,
         column_config={
             "날짜": st.column_config.DateColumn("날짜", width="small"),
             "제목": st.column_config.TextColumn("제목", width="large"),
@@ -162,3 +177,15 @@ def page_report_list(start_date, end_date):
             "링크": st.column_config.LinkColumn("링크", display_text="🔗", width="small"),
         }
     )
+
+    # 페이지 네비게이션
+    col_prev, col_info, col_next = st.columns([1, 2, 1])
+    with col_prev:
+        if st.button("⬅️ 이전", disabled=(page == 0), key="rpt_prev"):
+            st.session_state.rpt_page = page - 1
+            st.rerun()
+    with col_next:
+        if st.button("➡️ 다음", disabled=(page >= total_pages - 1), key="rpt_next"):
+            st.session_state.rpt_page = page + 1
+            st.rerun()
+
