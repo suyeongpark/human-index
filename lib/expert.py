@@ -109,7 +109,7 @@ def page_report_ranking(start_date, end_date):
 
 def page_report_list(start_date, end_date):
     """📋 리포트 목록"""
-    st.title("📋 증권사 리포트 목록")
+    st.title("📋 리포트, 기사 목록")
 
     PAGE_SIZE = 25
 
@@ -127,7 +127,7 @@ def page_report_list(start_date, end_date):
             ORDER BY securities_firm
         """, (start_date, end_date))
         firm_list = ["전체"] + firms["securities_firm"].tolist()
-        selected_firm = st.selectbox("🏢 증권사", firm_list, key="rpt_firm")
+        selected_firm = st.selectbox("📰 출처", firm_list, key="rpt_firm")
 
     # 쿼리 조건
     conditions = ["ea.published_date BETWEEN %s AND %s"]
