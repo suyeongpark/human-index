@@ -110,19 +110,19 @@ def page_mention_ranking(start_date, end_date):
                COUNT(*) FILTER (WHERE pm.sentiment = 1) as "👍 긍정",
                COUNT(*) FILTER (WHERE pm.sentiment = -1) as "👎 부정",
                COUNT(*) FILTER (WHERE pm.sentiment = 0) as "➖ 중립",
-               ROUND(100.0 * COUNT(*) FILTER (WHERE pm.sentiment = 1) / NULLIF(COUNT(*), 0), 1) as "긍정률(%%)",
-               ROUND(((AVG(pm.sentiment) + 1) * 50)::numeric, 1) as "감성 점수",
+               ROUND(100.0 * COUNT(*) FILTER (WHERE pm.sentiment = 1) / NULLIF(COUNT(*), 0), 1) as "📊 긍정률(%%)",
+               ROUND(((AVG(pm.sentiment) + 1) * 50)::numeric, 1) as "🎯 감성 점수",
                ROUND(
                    %s * COUNT(*) FILTER (WHERE pm.sentiment = 1) +
                    %s * COUNT(*) FILTER (WHERE pm.sentiment = -1) +
                    %s * COUNT(*) FILTER (WHERE pm.sentiment = 0)
-               , 1) as "가중 점수"
+               , 1) as "⭐ 가중 점수"
         FROM post_mentions pm
         JOIN tickers t ON t.id = pm.ticker_id
         JOIN posts p ON p.id = pm.post_id
         WHERE p.post_date BETWEEN %s AND %s
         GROUP BY t.symbol, t.name, t.market
-        ORDER BY "가중 점수" DESC
+        ORDER BY "⭐ 가중 점수" DESC
         LIMIT %s
     """, (SCORE_WEIGHT_POSITIVE, SCORE_WEIGHT_NEGATIVE, SCORE_WEIGHT_NEUTRAL,
           start_date, end_date, rank_limit))
@@ -231,42 +231,51 @@ def page_post_list(start_date, end_date):
         st.info(f"🎯 종목 필터: {filter_symbol}")
         posts_df = run_query("""
             SELECT p.post_date as "날짜", p.title as "제목", p.author as "작성자",
-                   STRING_AGG(DISTINCT t2.name, ', ') as "언급 종목"
+                   STRING_AGG(DISTINCT t2.name, ', ') as "언급 종목",
+                   p.source_url as "링크"
             FROM posts p
             JOIN post_mentions pm ON pm.post_id = p.id
             JOIN tickers t ON t.id = pm.ticker_id AND t.symbol = %s
             LEFT JOIN post_mentions pm2 ON pm2.post_id = p.id
             LEFT JOIN tickers t2 ON t2.id = pm2.ticker_id
             WHERE p.post_date BETWEEN %s AND %s
-            GROUP BY p.id, p.post_date, p.title, p.author
+            GROUP BY p.id, p.post_date, p.title, p.author, p.source_url
             ORDER BY p.post_date DESC, p.id DESC
             LIMIT %s
         """, (filter_symbol, start_date, end_date, limit))
     elif search:
         posts_df = run_query("""
             SELECT p.post_date as "날짜", p.title as "제목", p.author as "작성자",
-                   STRING_AGG(t.name, ', ') as "언급 종목"
+                   STRING_AGG(t.name, ', ') as "언급 종목",
+                   p.source_url as "링크"
             FROM posts p
             LEFT JOIN post_mentions pm ON pm.post_id = p.id
             LEFT JOIN tickers t ON t.id = pm.ticker_id
             WHERE p.post_date BETWEEN %s AND %s
               AND p.title ILIKE %s
-            GROUP BY p.id, p.post_date, p.title, p.author
+            GROUP BY p.id, p.post_date, p.title, p.author, p.source_url
             ORDER BY p.post_date DESC, p.id DESC
             LIMIT %s
         """, (start_date, end_date, f"%{search}%", limit))
     else:
         posts_df = run_query("""
             SELECT p.post_date as "날짜", p.title as "제목", p.author as "작성자",
-                   STRING_AGG(t.name, ', ') as "언급 종목"
+                   STRING_AGG(t.name, ', ') as "언급 종목",
+                   p.source_url as "링크"
             FROM posts p
             LEFT JOIN post_mentions pm ON pm.post_id = p.id
             LEFT JOIN tickers t ON t.id = pm.ticker_id
             WHERE p.post_date BETWEEN %s AND %s
-            GROUP BY p.id, p.post_date, p.title, p.author
+            GROUP BY p.id, p.post_date, p.title, p.author, p.source_url
             ORDER BY p.post_date DESC, p.id DESC
             LIMIT %s
         """, (start_date, end_date, limit))
 
     st.caption(f"총 {len(posts_df)}건 표시")
-    st.dataframe(posts_df, use_container_width=True, hide_index=True, height=800)
+    st.dataframe(
+        posts_df, use_container_width=True, hide_index=True, height=800,
+        column_config={
+            "링크": st.column_config.LinkColumn("링크", display_text="🔗")
+        }
+    )
+
