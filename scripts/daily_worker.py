@@ -60,7 +60,7 @@ COMMUNITIES = [
             "&m=search&b=bullpen&query=%EC%A3%BC%EC%8B%9D"
         ),
         "posts_per_page": 30,
-        "max_pages": 5,  # 일일 크롤링 시 최근 5페이지만 (150건)
+        "max_pages": 50,  # 안전 상한 (실제로는 중복 감지로 조기 종료)
     },
     # 추후 다른 커뮤니티 추가 가능
     # {
@@ -196,10 +196,10 @@ def crawl_mlbpark_page(url: str) -> list[dict]:
 
 
 def crawl_community(cur, community: dict) -> int:
-    """커뮤니티 크롤링 + DB 저장. 신규 삽입 건수 반환."""
+    """커뮤니티 크롤링 + DB 저장. source_url 중복 감지로 자동 종료."""
     community_id = ensure_community(cur, community)
     total_inserted = 0
-    consecutive_zero = 0
+    consecutive_dup_pages = 0  # 신규 0건 연속 페이지 수
 
     for page in range(community["max_pages"]):
         offset = page * community["posts_per_page"]
@@ -212,14 +212,10 @@ def crawl_community(cur, community: dict) -> int:
             continue
 
         if not posts:
-            consecutive_zero += 1
-            if consecutive_zero >= 2:
-                break
-            continue
+            log.info(f"  페이지 {page+1}: 게시글 없음, 종료")
+            break
 
-        consecutive_zero = 0
         inserted = 0
-
         for post in posts:
             cur.execute(
                 """
@@ -235,6 +231,16 @@ def crawl_community(cur, community: dict) -> int:
 
         total_inserted += inserted
         log.info(f"  페이지 {page+1}: +{inserted} 신규 / {len(posts)} 수집")
+
+        # 신규 0건이면 이미 수집된 영역 → 2연속이면 종료
+        if inserted == 0:
+            consecutive_dup_pages += 1
+            if consecutive_dup_pages >= 2:
+                log.info(f"  2연속 중복 페이지 → 크롤링 종료 (총 {page+1}페이지)")
+                break
+        else:
+            consecutive_dup_pages = 0
+
         time.sleep(REQUEST_DELAY)
 
     return total_inserted
