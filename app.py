@@ -96,7 +96,7 @@ else:
     start_date, end_date = min_date, max_date
 
 # ─── 메뉴 섹션 정의 ──────────────────────────────────
-COMMUNITY_PAGES = ["📈 커뮤니티 개요", "📊 언급량 랭킹", "🚀 급상승 랭킹", "👤 작성자 랭킹", "📋 게시글 목록"]
+COMMUNITY_PAGES = ["📈 커뮤니티 개요", "📊 언급량 랭킹", "🚀 급상승 랭킹", "📋 게시글 목록"]
 EXPERT_PAGES = ["📈 전문가 개요", "📊 리포트 랭킹", "📋 리포트 목록"]
 COMBINED_PAGES = ["🏠 종합 대시보드", "🔍 종목 검색"]
 
@@ -162,7 +162,7 @@ PAGE_MAP = {
     "📈 커뮤니티 개요": community.page_overview,
     "📊 언급량 랭킹": community.page_mention_ranking,
     "🚀 급상승 랭킹": community.page_surge_ranking,
-    "👤 작성자 랭킹": community.page_author_ranking,
+
     "📋 게시글 목록": community.page_post_list,
     # 전문가
     "📈 전문가 개요": expert.page_overview,

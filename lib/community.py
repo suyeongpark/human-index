@@ -275,7 +275,11 @@ def page_post_list(start_date, end_date):
     st.dataframe(
         posts_df, use_container_width=True, hide_index=True, height=800,
         column_config={
-            "링크": st.column_config.LinkColumn("링크", display_text="🔗")
+            "날짜": st.column_config.DateColumn("날짜", width="small"),
+            "제목": st.column_config.TextColumn("제목", width="large"),
+            "작성자": st.column_config.TextColumn("작성자", width="small"),
+            "언급 종목": st.column_config.TextColumn("언급 종목", width="medium"),
+            "링크": st.column_config.LinkColumn("링크", display_text="🔗", width="small"),
         }
     )
 

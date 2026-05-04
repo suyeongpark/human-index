@@ -3,3 +3,8 @@ logs/
 scripts/debug_page.html
 __pycache__/
 *.pyc
+docs/.env
+.streamlit/secrets.toml
+data_dump.sql
+expert_schema.sql
+expert_data.sql

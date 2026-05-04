@@ -10,7 +10,7 @@ from datetime import date, datetime
 import re
 import time
 
-DB_CONFIG = {"dbname": "human_index", "host": "localhost", "port": 5432}
+from db_config import DB_CONFIG
 HEADERS = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"}
 
 BASE_URL = (

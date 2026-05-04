@@ -10,11 +10,7 @@ import re
 import sys
 from datetime import date
 
-DB_CONFIG = {
-    "dbname": "human_index",
-    "host": "localhost",
-    "port": 5432,
-}
+from db_config import DB_CONFIG
 
 # ─── 종목 사전 ──────────────────────────────────────────
 # (symbol, name, market, aliases)

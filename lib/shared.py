@@ -5,6 +5,7 @@
 import streamlit as st
 import psycopg2
 import pandas as pd
+import os
 
 # ─── 점수 가중치 설정 ─────────────────────────────────
 SCORE_WEIGHT_POSITIVE = 2.0   # 긍정 가중치
@@ -12,10 +13,20 @@ SCORE_WEIGHT_NEGATIVE = 0.5   # 부정 가중치
 SCORE_WEIGHT_NEUTRAL  = 1.0   # 중립 가중치
 
 # ─── DB 연결 ─────────────────────────────────────────
+# 우선순위: Streamlit secrets → 환경변수 → 로컬 기본값
+def _get_config(key, default=""):
+    """Streamlit secrets 또는 환경변수에서 설정값 읽기"""
+    try:
+        return st.secrets["database"][key]
+    except Exception:
+        return os.environ.get(key, default)
+
 DB_CONFIG = {
-    "dbname": "human_index",
-    "host": "localhost",
-    "port": 5432,
+    "dbname": _get_config("DB_NAME", "human_index"),
+    "host": _get_config("DB_HOST", "localhost"),
+    "port": int(_get_config("DB_PORT", "5432")),
+    "user": _get_config("DB_USER", ""),
+    "password": _get_config("DB_PASSWORD", ""),
 }
 
 

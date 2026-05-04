@@ -152,6 +152,13 @@ def page_report_list(start_date, end_date):
     st.dataframe(
         rpt_df, use_container_width=True, hide_index=True, height=800,
         column_config={
-            "링크": st.column_config.LinkColumn("링크", display_text="🔗")
+            "날짜": st.column_config.DateColumn("날짜", width="small"),
+            "제목": st.column_config.TextColumn("제목", width="large"),
+            "증권사": st.column_config.TextColumn("증권사", width="small"),
+            "작성자": st.column_config.TextColumn("작성자", width="small"),
+            "목표가": st.column_config.TextColumn("목표가", width="small"),
+            "투자의견": st.column_config.TextColumn("투자의견", width="small"),
+            "종목": st.column_config.TextColumn("종목", width="small"),
+            "링크": st.column_config.LinkColumn("링크", display_text="🔗", width="small"),
         }
     )

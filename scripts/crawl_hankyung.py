@@ -26,11 +26,7 @@ logging.basicConfig(
 log = logging.getLogger(__name__)
 
 # ─── 설정 ──────────────────────────────────────────────
-DB_CONFIG = {
-    "dbname": "human_index",
-    "host": "localhost",
-    "port": 5432,
-}
+from db_config import DB_CONFIG
 
 SOURCE_NAME = "한경 컨센서스"
 SOURCE_TYPE = "report"  # 증권사 리포트

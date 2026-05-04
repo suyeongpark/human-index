@@ -10,11 +10,7 @@ import requests
 import sys
 from bs4 import BeautifulSoup
 
-DB_CONFIG = {
-    "dbname": "human_index",
-    "host": "localhost",
-    "port": 5432,
-}
+from db_config import DB_CONFIG
 
 
 # ─── 미국 주요 종목 + 한글 별칭 ────────────────────────

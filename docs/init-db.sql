@@ -86,3 +86,50 @@ CREATE TABLE mention_trend_alerts (
 
 CREATE INDEX ix_trend_alerts_ticker_date ON mention_trend_alerts (ticker_id, alert_date);
 CREATE INDEX ix_trend_alerts_unread ON mention_trend_alerts (is_read) WHERE is_read = FALSE;
+
+-- 7. expert_sources
+CREATE TABLE expert_sources (
+    id          SERIAL          PRIMARY KEY,
+    name        VARCHAR(100)    NOT NULL UNIQUE,
+    source_type VARCHAR(20)     NOT NULL,
+    base_url    VARCHAR(500)    NOT NULL,
+    is_active   BOOLEAN         NOT NULL DEFAULT TRUE,
+    created_at  TIMESTAMPTZ     NOT NULL DEFAULT NOW()
+);
+
+COMMENT ON COLUMN expert_sources.source_type IS 'report: 증권사 리포트, article: 뉴스 기사';
+
+-- 8. expert_articles
+CREATE TABLE expert_articles (
+    id              BIGSERIAL       PRIMARY KEY,
+    source_id       INTEGER         NOT NULL REFERENCES expert_sources(id),
+    title           TEXT            NOT NULL,
+    author          VARCHAR(200),
+    securities_firm VARCHAR(100),
+    published_date  DATE            NOT NULL,
+    collected_at    TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
+    source_url      VARCHAR(1000)
+);
+
+CREATE INDEX ix_expert_articles_published_date ON expert_articles (published_date);
+CREATE INDEX ix_expert_articles_source_date ON expert_articles (source_id, published_date);
+CREATE INDEX ix_expert_articles_securities_firm ON expert_articles (securities_firm) WHERE securities_firm IS NOT NULL;
+CREATE UNIQUE INDEX uq_expert_articles_source_url ON expert_articles (source_url) WHERE source_url IS NOT NULL;
+
+-- 9. expert_article_mentions
+CREATE TABLE expert_article_mentions (
+    id          BIGSERIAL       PRIMARY KEY,
+    article_id  BIGINT          NOT NULL REFERENCES expert_articles(id) ON DELETE CASCADE,
+    ticker_id   INTEGER         NOT NULL REFERENCES tickers(id),
+    sentiment   SMALLINT        NOT NULL DEFAULT 0,
+    target_price VARCHAR(50),
+    opinion     VARCHAR(20),
+    analyzed_at TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
+    CONSTRAINT uq_expert_article_mentions UNIQUE (article_id, ticker_id)
+);
+
+CREATE INDEX ix_expert_article_mentions_article ON expert_article_mentions (article_id);
+CREATE INDEX ix_expert_article_mentions_ticker ON expert_article_mentions (ticker_id);
+
+COMMENT ON COLUMN expert_article_mentions.sentiment IS '1: 긍정, -1: 부정, 0: 중립';
+COMMENT ON COLUMN expert_article_mentions.opinion IS '매수, 중립, 매도, Trading Buy 등';

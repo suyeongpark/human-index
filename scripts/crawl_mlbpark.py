@@ -10,11 +10,7 @@ from datetime import date, datetime
 import re
 
 # ─── 설정 ──────────────────────────────────────────────
-DB_CONFIG = {
-    "dbname": "human_index",
-    "host": "localhost",
-    "port": 5432,
-}
+from db_config import DB_CONFIG
 
 COMMUNITY_NAME = "MLBPark 불펜"
 BASE_URL = "https://mlbpark.donga.com/mp/b.php"

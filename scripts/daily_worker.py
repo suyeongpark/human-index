@@ -36,11 +36,7 @@ logging.basicConfig(
 log = logging.getLogger("worker")
 
 # ─── 설정 ──────────────────────────────────────────────
-DB_CONFIG = {
-    "dbname": "human_index",
-    "host": "localhost",
-    "port": 5432,
-}
+from db_config import DB_CONFIG
 
 HEADERS = {
     "User-Agent": (
