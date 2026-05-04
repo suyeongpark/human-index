@@ -4,7 +4,7 @@
 
 import streamlit as st
 from datetime import timedelta
-from lib.shared import run_query, SCORE_WEIGHT_POSITIVE, SCORE_WEIGHT_NEGATIVE, SCORE_WEIGHT_NEUTRAL
+from lib.shared import run_query, paginated_dataframe, SCORE_WEIGHT_POSITIVE, SCORE_WEIGHT_NEGATIVE, SCORE_WEIGHT_NEUTRAL
 
 
 def page_overview(start_date, end_date):
@@ -100,10 +100,6 @@ def page_mention_ranking(start_date, end_date):
     """📊 언급량 랭킹"""
     st.title("📊 종목 언급량 랭킹")
 
-    rank_limit_options = {"30건": 30, "50건": 50, "100건": 100, "전체": 9999}
-    rank_limit_label = st.selectbox("표시 건수", list(rank_limit_options.keys()))
-    rank_limit = rank_limit_options[rank_limit_label]
-
     ranking = run_query("""
         SELECT t.symbol as "심볼", t.name as "종목명", t.market as "시장",
                COUNT(*) as "총 언급",
@@ -123,12 +119,11 @@ def page_mention_ranking(start_date, end_date):
         WHERE p.post_date BETWEEN %s AND %s
         GROUP BY t.symbol, t.name, t.market
         ORDER BY "⭐ 가중 점수" DESC
-        LIMIT %s
     """, (SCORE_WEIGHT_POSITIVE, SCORE_WEIGHT_NEGATIVE, SCORE_WEIGHT_NEUTRAL,
-          start_date, end_date, rank_limit))
+          start_date, end_date))
 
     if not ranking.empty:
-        st.dataframe(ranking, use_container_width=True, hide_index=True, height=800)
+        paginated_dataframe(ranking, "pg_mention_ranking")
     else:
         st.info("데이터가 없습니다.")
 
@@ -137,15 +132,9 @@ def page_surge_ranking(start_date, end_date):
     """🚀 급상승 랭킹"""
     st.title("🚀 급상승 종목 랭킹")
 
-    col1, col2 = st.columns(2)
-    with col1:
-        PERIOD_OPTIONS = {"3일간": 3, "주간 (7일)": 7, "월간 (30일)": 30}
-        period_label = st.selectbox("📅 비교 기간", list(PERIOD_OPTIONS.keys()))
-        days = PERIOD_OPTIONS[period_label]
-    with col2:
-        surge_limit_opts = {"20건": 20, "50건": 50, "100건": 100, "전체": 9999}
-        surge_limit_label = st.selectbox("표시 건수", list(surge_limit_opts.keys()), key="surge_limit")
-        surge_limit = surge_limit_opts[surge_limit_label]
+    PERIOD_OPTIONS = {"3일간": 3, "주간 (7일)": 7, "월간 (30일)": 30}
+    period_label = st.selectbox("📅 비교 기간", list(PERIOD_OPTIONS.keys()))
+    days = PERIOD_OPTIONS[period_label]
 
     recent_end = end_date
     recent_start = end_date - timedelta(days=days - 1)
@@ -182,11 +171,10 @@ def page_surge_ranking(start_date, end_date):
         JOIN tickers t ON t.id = COALESCE(r.ticker_id, p.ticker_id)
         WHERE t.market NOT IN ('THEME', 'CRYPTO')
         ORDER BY COALESCE(r.cnt, 0) - COALESCE(p.cnt, 0) DESC
-        LIMIT %s
-    """, (recent_start, recent_end, prev_start, prev_end, surge_limit))
+    """, (recent_start, recent_end, prev_start, prev_end))
 
     if not surge.empty:
-        st.dataframe(surge, use_container_width=True, hide_index=True, height=800)
+        paginated_dataframe(surge, "pg_surge_ranking")
     else:
         st.info("비교할 데이터가 부족합니다.")
 
@@ -195,17 +183,13 @@ def page_author_ranking(start_date, end_date):
     """👤 작성자 랭킹"""
     st.title("👤 활발한 작성자 랭킹")
 
-    author_limit_opts = {"20건": 20, "50건": 50, "100건": 100, "전체": 9999}
-    author_limit_label = st.selectbox("표시 건수", list(author_limit_opts.keys()), key="author_limit")
-    author_limit = author_limit_opts[author_limit_label]
-
     authors = run_query("""
         SELECT author as "작성자", COUNT(*) as "게시글 수"
         FROM posts
         WHERE post_date BETWEEN %s AND %s
-        GROUP BY author ORDER BY COUNT(*) DESC LIMIT %s
-    """, (start_date, end_date, author_limit))
-    st.dataframe(authors, use_container_width=True, hide_index=True, height=800)
+        GROUP BY author ORDER BY COUNT(*) DESC
+    """, (start_date, end_date))
+    paginated_dataframe(authors, "pg_author_ranking")
 
 
 def page_post_list(start_date, end_date):

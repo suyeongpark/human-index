@@ -54,3 +54,41 @@ def navigate_to(target_page, ticker_symbol=None, search_keyword=None, filter_sym
     st.session_state.nav_search_keyword = search_keyword
     st.session_state.nav_filter_symbol = filter_symbol
     st.session_state._pending_nav = True  # radio 동기화 플래그
+
+
+PAGE_SIZE = 25
+
+
+def paginated_dataframe(df, key, height=700, column_config=None):
+    """DataFrame을 25건 단위로 페이지네이션하여 표시"""
+    if key not in st.session_state:
+        st.session_state[key] = 0
+
+    total = len(df)
+    total_pages = max(1, (total + PAGE_SIZE - 1) // PAGE_SIZE)
+
+    page = st.session_state[key]
+    page = min(page, total_pages - 1)
+    st.session_state[key] = page
+
+    start = page * PAGE_SIZE
+    end = start + PAGE_SIZE
+    page_df = df.iloc[start:end]
+
+    st.caption(f"총 {total}건 | 페이지 {page + 1} / {total_pages}")
+
+    kwargs = dict(use_container_width=True, hide_index=True, height=height)
+    if column_config:
+        kwargs["column_config"] = column_config
+    st.dataframe(page_df, **kwargs)
+
+    col_prev, col_info, col_next = st.columns([1, 2, 1])
+    with col_prev:
+        if st.button("⬅️ 이전", disabled=(page == 0), key=f"{key}_prev"):
+            st.session_state[key] = page - 1
+            st.rerun()
+    with col_next:
+        if st.button("➡️ 다음", disabled=(page >= total_pages - 1), key=f"{key}_next"):
+            st.session_state[key] = page + 1
+            st.rerun()
+

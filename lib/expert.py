@@ -3,7 +3,7 @@
 """
 
 import streamlit as st
-from lib.shared import run_query
+from lib.shared import run_query, paginated_dataframe
 
 
 def page_overview(start_date, end_date):
@@ -50,7 +50,7 @@ def page_overview(start_date, end_date):
         GROUP BY t.name ORDER BY COUNT(*) DESC LIMIT 10
     """, (start_date, end_date))
     if not top_cover.empty:
-        st.dataframe(top_cover, use_container_width=True, hide_index=True, height=400)
+        paginated_dataframe(top_cover, "pg_top_cover", height=400)
 
     st.markdown("---")
 
@@ -68,10 +68,6 @@ def page_overview(start_date, end_date):
 def page_report_ranking(start_date, end_date):
     """📊 리포트 랭킹"""
     st.title("📊 종목별 리포트 랭킹")
-
-    rpt_limit_opts = {"30건": 30, "50건": 50, "100건": 100, "전체": 9999}
-    rpt_limit_label = st.selectbox("표시 건수", list(rpt_limit_opts.keys()), key="rpt_limit")
-    rpt_limit = rpt_limit_opts[rpt_limit_label]
 
     rpt_ranking = run_query("""
         SELECT t.symbol as "심볼", t.name as "종목명",
@@ -93,11 +89,10 @@ def page_report_ranking(start_date, end_date):
         WHERE ea.published_date BETWEEN %s AND %s
         GROUP BY t.symbol, t.name
         ORDER BY "⭐ 가중 점수" DESC
-        LIMIT %s
-    """, (start_date, end_date, rpt_limit))
+    """, (start_date, end_date))
 
     if not rpt_ranking.empty:
-        st.dataframe(rpt_ranking, use_container_width=True, hide_index=True, height=800)
+        paginated_dataframe(rpt_ranking, "pg_rpt_ranking")
     else:
         st.info("데이터가 없습니다.")
 

@@ -3,7 +3,7 @@
 """
 
 import streamlit as st
-from lib.shared import run_query
+from lib.shared import run_query, paginated_dataframe
 
 
 def page_dashboard(start_date, end_date):
@@ -59,7 +59,7 @@ def page_dashboard(start_date, end_date):
     """, (start_date, end_date, start_date, end_date))
 
     if not cross.empty:
-        st.dataframe(cross, use_container_width=True, hide_index=True)
+        paginated_dataframe(cross, "pg_cross_analysis")
 
     st.markdown("---")
 
@@ -81,7 +81,7 @@ def page_dashboard(start_date, end_date):
     """, (start_date, end_date, start_date, end_date))
 
     if not expert_only.empty:
-        st.dataframe(expert_only, use_container_width=True, hide_index=True)
+        paginated_dataframe(expert_only, "pg_expert_only")
     else:
         st.info("모든 전문가 종목이 커뮤니티에서도 언급되고 있습니다.")
 
