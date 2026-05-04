@@ -2,8 +2,8 @@ name: 커뮤니티 크롤러 (Daily Worker)
 
 on:
   schedule:
-    # 매 1시간마다 실행 (UTC 기준)
-    - cron: '0 * * * *'
+    # 30분마다 실행
+    - cron: '*/30 * * * *'
   workflow_dispatch:  # 수동 실행 가능
 
 jobs:
