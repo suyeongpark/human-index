@@ -58,11 +58,6 @@ st.markdown("""
         min-height: 0 !important;
         line-height: 1 !important;
     }
-    /* dataframe을 화면 높이에 맞춤 */
-    [data-testid="stDataFrame"] > div {
-        height: calc(100vh - 250px) !important;
-        max-height: calc(100vh - 250px) !important;
-    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -244,7 +239,7 @@ if st.session_state.page == "📈 커뮤니티 개요":
             GROUP BY post_date ORDER BY post_date
         """, (start_date, end_date))
         if not daily_posts.empty:
-            st.bar_chart(daily_posts.set_index("날짜"))
+            st.line_chart(daily_posts.set_index("날짜"))
 
     with col_right:
         st.subheader("💬 일별 종목 언급 수")
@@ -256,7 +251,7 @@ if st.session_state.page == "📈 커뮤니티 개요":
             GROUP BY p.post_date ORDER BY p.post_date
         """, (start_date, end_date))
         if not daily_mentions.empty:
-            st.bar_chart(daily_mentions.set_index("날짜"))
+            st.line_chart(daily_mentions.set_index("날짜"))
 
     st.markdown("---")
 
@@ -534,7 +529,7 @@ elif st.session_state.page == "🚀 급상승 랭킹":
     """, (recent_start, recent_end, prev_start, prev_end, surge_limit))
 
     if not surge.empty:
-        st.dataframe(surge, use_container_width=True, hide_index=True)
+        st.dataframe(surge, use_container_width=True, hide_index=True, height=800)
     else:
         st.info("비교할 데이터가 부족합니다.")
 
@@ -555,7 +550,7 @@ elif st.session_state.page == "👤 작성자 랭킹":
         WHERE post_date BETWEEN %s AND %s
         GROUP BY author ORDER BY COUNT(*) DESC LIMIT %s
     """, (start_date, end_date, author_limit))
-    st.dataframe(authors, use_container_width=True, hide_index=True)
+    st.dataframe(authors, use_container_width=True, hide_index=True, height=800)
 
 
 # ═══════════════════════════════════════════════════════
@@ -621,7 +616,7 @@ elif st.session_state.page == "📋 게시글 목록":
         """, (start_date, end_date, limit))
 
     st.caption(f"총 {len(posts_df)}건 표시")
-    st.dataframe(posts_df, use_container_width=True, hide_index=True)
+    st.dataframe(posts_df, use_container_width=True, hide_index=True, height=800)
 
 
 # ═══════════════════════════════════════════════════════
@@ -658,29 +653,6 @@ elif st.session_state.page == "📈 전문가 개요":
 
     st.markdown("---")
 
-    col_l, col_r = st.columns(2)
-    with col_l:
-        st.subheader("📊 일별 리포트 수")
-        daily_reports = run_query("""
-            SELECT published_date as "날짜", COUNT(*) as "리포트 수"
-            FROM expert_articles WHERE published_date BETWEEN %s AND %s
-            GROUP BY published_date ORDER BY published_date
-        """, (start_date, end_date))
-        if not daily_reports.empty:
-            st.bar_chart(daily_reports.set_index("날짜"))
-
-    with col_r:
-        st.subheader("🏢 증권사별 리포트 수")
-        by_firm = run_query("""
-            SELECT securities_firm as "증권사", COUNT(*) as "리포트 수"
-            FROM expert_articles
-            WHERE published_date BETWEEN %s AND %s AND securities_firm IS NOT NULL
-            GROUP BY securities_firm ORDER BY COUNT(*) DESC LIMIT 15
-        """, (start_date, end_date))
-        if not by_firm.empty:
-            st.bar_chart(by_firm.set_index("증권사"))
-
-    st.markdown("---")
     st.subheader("🔥 TOP 10 커버 종목")
     top_cover = run_query("""
         SELECT t.name as "종목", COUNT(*) as "리포트 수",
@@ -693,7 +665,19 @@ elif st.session_state.page == "📈 전문가 개요":
         GROUP BY t.name ORDER BY COUNT(*) DESC LIMIT 10
     """, (start_date, end_date))
     if not top_cover.empty:
-        st.dataframe(top_cover, use_container_width=True, hide_index=True)
+        st.dataframe(top_cover, use_container_width=True, hide_index=True, height=400)
+
+    st.markdown("---")
+
+    st.subheader("🏢 증권사별 리포트 수")
+    by_firm = run_query("""
+        SELECT securities_firm as "증권사", COUNT(*) as "리포트 수"
+        FROM expert_articles
+        WHERE published_date BETWEEN %s AND %s AND securities_firm IS NOT NULL
+        GROUP BY securities_firm ORDER BY COUNT(*) DESC LIMIT 15
+    """, (start_date, end_date))
+    if not by_firm.empty:
+        st.bar_chart(by_firm.set_index("증권사"))
 
 
 # ═══════════════════════════════════════════════════════
@@ -723,7 +707,7 @@ elif st.session_state.page == "📊 리포트 랭킹":
     """, (start_date, end_date, rpt_limit))
 
     if not rpt_ranking.empty:
-        st.dataframe(rpt_ranking, use_container_width=True, hide_index=True)
+        st.dataframe(rpt_ranking, use_container_width=True, hide_index=True, height=800)
     else:
         st.info("데이터가 없습니다.")
 
@@ -776,7 +760,7 @@ elif st.session_state.page == "📋 리포트 목록":
     """, params)
 
     st.caption(f"총 {len(rpt_df)}건 표시")
-    st.dataframe(rpt_df, use_container_width=True, hide_index=True)
+    st.dataframe(rpt_df, use_container_width=True, hide_index=True, height=800)
 
 
 # ═══════════════════════════════════════════════════════
@@ -797,29 +781,8 @@ elif st.session_state.page == "🏠 종합 대시보드":
     c1.metric("📢 커뮤니티 게시글", f"{kpi_all['comm_posts'].iloc[0]:,}")
     c2.metric("🔬 전문가 리포트", f"{kpi_all['expert_reports'].iloc[0]:,}")
 
-    st.markdown("---")
 
-    # 일별 비교 차트
-    st.subheader("📊 일별 커뮤니티 vs 전문가")
-    daily_compare = run_query("""
-        WITH comm AS (
-            SELECT post_date as d, COUNT(*) as cnt FROM posts
-            WHERE post_date BETWEEN %s AND %s GROUP BY post_date
-        ),
-        expert AS (
-            SELECT published_date as d, COUNT(*) as cnt FROM expert_articles
-            WHERE published_date BETWEEN %s AND %s GROUP BY published_date
-        )
-        SELECT COALESCE(c.d, e.d) as "날짜",
-               COALESCE(c.cnt, 0) as "커뮤니티 게시글",
-               COALESCE(e.cnt, 0) as "전문가 리포트"
-        FROM comm c FULL OUTER JOIN expert e ON c.d = e.d
-        ORDER BY "날짜"
-    """, (start_date, end_date, start_date, end_date))
-    if not daily_compare.empty:
-        st.line_chart(daily_compare.set_index("날짜"))
 
-    st.markdown("---")
 
     # 종목별 교차 분석
     st.subheader("🔀 종목별 대중 vs 전문가 비교")
