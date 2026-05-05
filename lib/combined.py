@@ -91,10 +91,9 @@ def page_dashboard(start_date, end_date):
     import altair as alt
 
     st.subheader("🔥 채널별 TOP 10 종목")
-    col1, col2, col3 = st.columns(3)
+    tab1, tab2, tab3 = st.tabs(["📢 커뮤니티", "🔬 전문가", "📰 뉴스"])
 
-    with col1:
-        st.markdown("**📢 커뮤니티**")
+    with tab1:
         comm_top = run_query("""
             SELECT t.name as "종목", COUNT(*) as "언급 수"
             FROM post_mentions pm
@@ -107,11 +106,10 @@ def page_dashboard(start_date, end_date):
             chart = alt.Chart(comm_top).mark_bar().encode(
                 x=alt.X("언급 수:Q"),
                 y=alt.Y("종목:N", sort="-x"),
-            ).properties(height=300)
+            ).properties(height=350)
             st.altair_chart(chart, use_container_width=True)
 
-    with col2:
-        st.markdown("**🔬 전문가**")
+    with tab2:
         expert_top = run_query("""
             SELECT t.name as "종목", COUNT(*) as "언급 수"
             FROM expert_article_mentions eam
@@ -125,11 +123,10 @@ def page_dashboard(start_date, end_date):
             chart = alt.Chart(expert_top).mark_bar().encode(
                 x=alt.X("언급 수:Q"),
                 y=alt.Y("종목:N", sort="-x"),
-            ).properties(height=300)
+            ).properties(height=350)
             st.altair_chart(chart, use_container_width=True)
 
-    with col3:
-        st.markdown("**📰 뉴스**")
+    with tab3:
         news_top = run_query("""
             SELECT t.name as "종목", COUNT(*) as "언급 수"
             FROM expert_article_mentions eam
@@ -143,7 +140,7 @@ def page_dashboard(start_date, end_date):
             chart = alt.Chart(news_top).mark_bar().encode(
                 x=alt.X("언급 수:Q"),
                 y=alt.Y("종목:N", sort="-x"),
-            ).properties(height=300)
+            ).properties(height=350)
             st.altair_chart(chart, use_container_width=True)
 
 
