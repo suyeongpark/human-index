@@ -116,17 +116,16 @@ def paginated_dataframe(df, key, height=700, column_config=None):
 
 
 # ─── 기간별 집계 헬퍼 ──────────────────────────────────
-PERIOD_OPTIONS = ["일간", "주간", "월간", "연간"]
+PERIOD_OPTIONS = ["주간", "월간", "연간"]
 
 PERIOD_SQL = {
-    "일간": {"select": "{date_col}", "group": "{date_col}"},
     "주간": {"select": "DATE_TRUNC('week', {date_col})::date", "group": "DATE_TRUNC('week', {date_col})"},
     "월간": {"select": "DATE_TRUNC('month', {date_col})::date", "group": "DATE_TRUNC('month', {date_col})"},
     "연간": {"select": "DATE_TRUNC('year', {date_col})::date", "group": "DATE_TRUNC('year', {date_col})"},
 }
 
 # TOP 10 등 집계에 사용할 최근 기간 (일 수)
-PERIOD_DAYS = {"일간": 1, "주간": 7, "월간": 30, "연간": 365}
+PERIOD_DAYS = {"주간": 7, "월간": 30, "연간": 365}
 
 def period_tabs(key: str) -> str:
     """집계 기간을 탭 스타일(horizontal radio) UI로 선택. 선택된 기간 문자열 반환."""
