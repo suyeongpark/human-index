@@ -73,10 +73,19 @@ COMMUNITIES = [
         "parser": "clien",
     },
     {
-        "name": "에펨코리아 주식",
+        "name": "에펨코리아 국내주식",
         "base_url": "https://www.fmkorea.com/stock",
         "category": "주식",
-        "crawl_url": "https://www.fmkorea.com/index.php?mid=stock",
+        "crawl_url": "https://www.fmkorea.com/index.php?mid=stock&category=2997203870",
+        "posts_per_page": 20,
+        "max_pages": 50,
+        "parser": "fmkorea",
+    },
+    {
+        "name": "에펨코리아 해외주식",
+        "base_url": "https://www.fmkorea.com/stock",
+        "category": "주식",
+        "crawl_url": "https://www.fmkorea.com/index.php?mid=stock&category=2997204381",
         "posts_per_page": 20,
         "max_pages": 50,
         "parser": "fmkorea",
@@ -561,19 +570,28 @@ def update_daily_stats(cur, target_date: date = None) -> int:
 # 메인 파이프라인
 # ═══════════════════════════════════════════════════════
 
-def run_pipeline():
-    """일일 파이프라인 실행"""
+def run_pipeline(community_filter=None):
+    """일일 파이프라인 실행. community_filter: 파서명(mlbpark/clien/fmkorea)으로 필터링"""
     start_time = datetime.now()
     log.info("=" * 60)
     log.info(f"Human Index Daily Worker 시작 - {start_time.isoformat()}")
+    if community_filter:
+        log.info(f"  필터: {community_filter}")
     log.info("=" * 60)
+
+    targets = COMMUNITIES
+    if community_filter:
+        targets = [c for c in COMMUNITIES if c["parser"] == community_filter]
+        if not targets:
+            log.error(f"  알 수 없는 커뮤니티: {community_filter}")
+            return
 
     conn = psycopg2.connect(**DB_CONFIG)
     try:
         # STEP 1: 크롤링
         log.info("\n📡 STEP 1: 크롤링")
         total_new = 0
-        for community in COMMUNITIES:
+        for community in targets:
             log.info(f"  [{community['name']}] 크롤링 시작...")
             with conn:
                 with conn.cursor() as cur:
@@ -623,4 +641,13 @@ def run_pipeline():
 
 
 if __name__ == "__main__":
-    run_pipeline()
+    import argparse
+    parser = argparse.ArgumentParser(description="Human Index 크롤링 파이프라인")
+    parser.add_argument(
+        "--community",
+        choices=["mlbpark", "clien", "fmkorea"],
+        help="특정 커뮤니티만 크롤링 (미지정 시 전체)",
+    )
+    args = parser.parse_args()
+    run_pipeline(community_filter=args.community)
+

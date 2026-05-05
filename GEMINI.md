@@ -5,7 +5,7 @@
 
 ## 핵심 흐름
 
-1. **수집** → GitHub Actions가 커뮤니티/리포트/뉴스 **제목**을 주기적으로 크롤링
+1. **수집** → GitHub Actions + 로컬 launchd가 커뮤니티/리포트/뉴스 **제목**을 주기적으로 크롤링
 2. **분석** → 제목에서 종목 추출 + 긍정/부정/중립 감성 판정
 3. **시각화** → Streamlit 대시보드에서 언급량 랭킹, 급상승 감지, 채널별 교차 분석
 
@@ -16,15 +16,16 @@
 | 대시보드 | Python + Streamlit → Streamlit Cloud |
 | DB | PostgreSQL → Supabase |
 | 크롤링 | Python (requests + BeautifulSoup + RSS) |
-| 스케줄링 | GitHub Actions |
+| 스케줄링 | GitHub Actions + macOS launchd |
 
 ## 데이터 소스
 
-| 소스 | 유형 | 주기 |
-|------|------|------|
-| MLBPark 불펜 / 클리앙 투자 / 에펨코리아 주식 | 커뮤니티 | 1시간 |
-| 한경 컨센서스 | 증권사 리포트 | 평일 1회 |
-| Google News RSS | 뉴스 기사 | 6시간 |
+| 소스 | 유형 | 실행 환경 | 주기 |
+|------|------|----------|------|
+| MLBPark 불펜 / 클리앙 투자 | 커뮤니티 | GitHub Actions | 1시간 |
+| 에펨코리아 국내주식 / 해외주식 | 커뮤니티 | 로컬 launchd | 30분 |
+| 한경 컨센서스 | 증권사 리포트 | GitHub Actions | 평일 1회 |
+| Google News RSS | 뉴스 기사 | GitHub Actions | 6시간 |
 
 ---
 

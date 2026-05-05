@@ -187,13 +187,16 @@ def page_overview(start_date, end_date):
 
 ### 데이터 소스
 
-| 소스 | 유형 | 크롤러 | 주기 |
-|------|------|--------|------|
-| MLBPark 불펜 (주식) | 커뮤니티 | `daily_worker.py` | 1시간 |
-| 클리앙 투자게시판 | 커뮤니티 | `daily_worker.py` | 1시간 |
-| 에펨코리아 주식 | 커뮤니티 | `daily_worker.py` | 1시간 |
-| 한경 컨센서스 | 증권사 리포트 | `crawl_hankyung.py` | 평일 1회 |
-| Google News RSS | 뉴스 기사 | `crawl_google_news.py` | 6시간 |
+| 소스 | 유형 | 크롤러 | 실행 환경 | 주기 |
+|------|------|--------|----------|------|
+| MLBPark 불펜 (주식) | 커뮤니티 | `daily_worker.py` | GitHub Actions | 1시간 |
+| 클리앙 투자게시판 | 커뮤니티 | `daily_worker.py` | GitHub Actions | 1시간 |
+| 에펨코리아 국내주식 | 커뮤니티 | `daily_worker.py --community fmkorea` | 로컬 launchd | 30분 |
+| 에펨코리아 해외주식 | 커뮤니티 | `daily_worker.py --community fmkorea` | 로컬 launchd | 30분 |
+| 한경 컨센서스 | 증권사 리포트 | `crawl_hankyung.py` | GitHub Actions | 평일 1회 |
+| Google News RSS | 뉴스 기사 | `crawl_google_news.py` | GitHub Actions | 6시간 |
+
+> 에펨코리아는 GitHub Actions IP(미국 데이터센터)를 차단하여 로컬에서만 크롤링 가능합니다.
 
 ### 커뮤니티 파이프라인 (`daily_worker.py`)
 
@@ -281,9 +284,10 @@ flowchart LR
 streamlit run app.py
 
 # 크롤링 수동 실행
-python scripts/daily_worker.py          # 커뮤니티 전체 파이프라인
-python scripts/crawl_hankyung.py        # 한경 리포트 수집
-python scripts/crawl_google_news.py     # Google News 뉴스 수집
+python scripts/daily_worker.py                    # 전체 커뮤니티 파이프라인
+python scripts/daily_worker.py --community fmkorea # 에펨코리아만
+python scripts/crawl_hankyung.py                   # 한경 리포트 수집
+python scripts/crawl_google_news.py                # Google News 뉴스 수집
 
 # 종목 마스터 업데이트
 python scripts/import_tickers.py

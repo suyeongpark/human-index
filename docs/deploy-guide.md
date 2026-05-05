@@ -65,28 +65,38 @@ DB_PASSWORD = "your-password"
 
 ---
 
-## 로컬 백업 (macOS launchd)
+## 로컬 크롤링 (macOS launchd)
 
-### plist 파일 위치
+> 에펨코리아는 GitHub Actions IP(미국 데이터센터)를 차단하여 **로컬에서만 크롤링 가능**합니다.
+
+### plist 파일
 
 ```
 ~/Library/LaunchAgents/
-├── com.humanindex.daily-worker.plist        # 커뮤니티 (1시간)
-├── com.humanindex.hankyung-crawler.plist    # 한경 리포트
-└── com.humanindex.google-news-crawler.plist # Google News (6시간)
+└── com.humanindex.fmkorea-crawler.plist   # 에펨코리아 (30분, 필수)
 ```
 
 ### 관리 명령어
 
 ```bash
 # 등록
-launchctl load ~/Library/LaunchAgents/com.humanindex.daily-worker.plist
+launchctl load ~/Library/LaunchAgents/com.humanindex.fmkorea-crawler.plist
 
 # 해제
-launchctl unload ~/Library/LaunchAgents/com.humanindex.daily-worker.plist
+launchctl unload ~/Library/LaunchAgents/com.humanindex.fmkorea-crawler.plist
 
 # 상태 확인
 launchctl list | grep humanindex
+
+# 로그 확인
+tail -f ~/Dev/Suyeongpark/human-index/logs/fmkorea_launchd.log
+```
+
+### 시스템 잠자기 비활성화
+
+launchd가 안정적으로 동작하려면 시스템 잠자기를 꺼야 합니다:
+```bash
+sudo pmset -c sleep 0
 ```
 
 > GitHub Actions와 로컬 launchd가 동시에 돌아도 `source_url` 기준 `ON CONFLICT DO NOTHING`으로 중복 데이터가 발생하지 않습니다.
@@ -126,7 +136,8 @@ launchctl list | grep humanindex
 | 증상 | 원인 | 해결 |
 |------|------|------|
 | GitHub Actions 크롤러 실패 | DB 접속 정보 오류 | Repository secrets 확인 (특히 `DB_USER` 형식) |
+| 에펨코리아 0건 수집 | GitHub Actions IP 차단 | 로컬 launchd로만 실행 (필수) |
 | Streamlit Cloud 에러 | 패키지 호환성 | `requirements.txt` 확인, `.python-version` = 3.11 |
-| 로컬 launchd 미실행 | Mac 잠자기 모드 | `sudo pmset -c sleep 0` 또는 GitHub Actions 의존 |
+| 로컬 launchd 미실행 | Mac 잠자기 모드 | `sudo pmset -c sleep 0` |
 | 데이터 중복 | - | `source_url` 유니크 제약으로 자동 방지 |
 | cron 지연 (±20분) | GitHub Actions 특성 | 정상 동작, 정확한 타이밍 불필요 |
