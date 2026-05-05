@@ -87,61 +87,60 @@ def page_dashboard(start_date, end_date):
 
     st.markdown("---")
 
-    # TOP 10 차트 3개
+    # TOP 10 차트 3개 (세로 배치)
     import altair as alt
 
     st.subheader("🔥 채널별 TOP 10 종목")
-    tab1, tab2, tab3 = st.tabs(["📢 커뮤니티", "🔬 전문가", "📰 뉴스"])
 
-    with tab1:
-        comm_top = run_query("""
-            SELECT t.name as "종목", COUNT(*) as "언급 수"
-            FROM post_mentions pm
-            JOIN tickers t ON t.id = pm.ticker_id
-            JOIN posts p ON p.id = pm.post_id
-            WHERE p.post_date BETWEEN %s AND %s AND t.market NOT IN ('THEME', 'CRYPTO')
-            GROUP BY t.name ORDER BY COUNT(*) DESC LIMIT 10
-        """, (period_start, end_date))
-        if not comm_top.empty:
-            chart = alt.Chart(comm_top).mark_bar().encode(
-                x=alt.X("언급 수:Q"),
-                y=alt.Y("종목:N", sort="-x"),
-            ).properties(height=350)
-            st.altair_chart(chart, use_container_width=True)
+    st.markdown("**📢 커뮤니티**")
+    comm_top = run_query("""
+        SELECT t.name as "종목", COUNT(*) as "언급 수"
+        FROM post_mentions pm
+        JOIN tickers t ON t.id = pm.ticker_id
+        JOIN posts p ON p.id = pm.post_id
+        WHERE p.post_date BETWEEN %s AND %s AND t.market NOT IN ('THEME', 'CRYPTO')
+        GROUP BY t.name ORDER BY COUNT(*) DESC LIMIT 10
+    """, (period_start, end_date))
+    if not comm_top.empty:
+        chart = alt.Chart(comm_top).mark_bar().encode(
+            x=alt.X("언급 수:Q"),
+            y=alt.Y("종목:N", sort="-x"),
+        ).properties(height=300)
+        st.altair_chart(chart, use_container_width=True)
 
-    with tab2:
-        expert_top = run_query("""
-            SELECT t.name as "종목", COUNT(*) as "언급 수"
-            FROM expert_article_mentions eam
-            JOIN tickers t ON t.id = eam.ticker_id
-            JOIN expert_articles ea ON ea.id = eam.article_id
-            JOIN expert_sources es ON es.id = ea.source_id
-            WHERE ea.published_date BETWEEN %s AND %s AND es.source_type = 'report'
-            GROUP BY t.name ORDER BY COUNT(*) DESC LIMIT 10
-        """, (period_start, end_date))
-        if not expert_top.empty:
-            chart = alt.Chart(expert_top).mark_bar().encode(
-                x=alt.X("언급 수:Q"),
-                y=alt.Y("종목:N", sort="-x"),
-            ).properties(height=350)
-            st.altair_chart(chart, use_container_width=True)
+    st.markdown("**🔬 전문가**")
+    expert_top = run_query("""
+        SELECT t.name as "종목", COUNT(*) as "언급 수"
+        FROM expert_article_mentions eam
+        JOIN tickers t ON t.id = eam.ticker_id
+        JOIN expert_articles ea ON ea.id = eam.article_id
+        JOIN expert_sources es ON es.id = ea.source_id
+        WHERE ea.published_date BETWEEN %s AND %s AND es.source_type = 'report'
+        GROUP BY t.name ORDER BY COUNT(*) DESC LIMIT 10
+    """, (period_start, end_date))
+    if not expert_top.empty:
+        chart = alt.Chart(expert_top).mark_bar().encode(
+            x=alt.X("언급 수:Q"),
+            y=alt.Y("종목:N", sort="-x"),
+        ).properties(height=300)
+        st.altair_chart(chart, use_container_width=True)
 
-    with tab3:
-        news_top = run_query("""
-            SELECT t.name as "종목", COUNT(*) as "언급 수"
-            FROM expert_article_mentions eam
-            JOIN tickers t ON t.id = eam.ticker_id
-            JOIN expert_articles ea ON ea.id = eam.article_id
-            JOIN expert_sources es ON es.id = ea.source_id
-            WHERE ea.published_date BETWEEN %s AND %s AND es.source_type = 'article'
-            GROUP BY t.name ORDER BY COUNT(*) DESC LIMIT 10
-        """, (period_start, end_date))
-        if not news_top.empty:
-            chart = alt.Chart(news_top).mark_bar().encode(
-                x=alt.X("언급 수:Q"),
-                y=alt.Y("종목:N", sort="-x"),
-            ).properties(height=350)
-            st.altair_chart(chart, use_container_width=True)
+    st.markdown("**📰 뉴스**")
+    news_top = run_query("""
+        SELECT t.name as "종목", COUNT(*) as "언급 수"
+        FROM expert_article_mentions eam
+        JOIN tickers t ON t.id = eam.ticker_id
+        JOIN expert_articles ea ON ea.id = eam.article_id
+        JOIN expert_sources es ON es.id = ea.source_id
+        WHERE ea.published_date BETWEEN %s AND %s AND es.source_type = 'article'
+        GROUP BY t.name ORDER BY COUNT(*) DESC LIMIT 10
+    """, (period_start, end_date))
+    if not news_top.empty:
+        chart = alt.Chart(news_top).mark_bar().encode(
+            x=alt.X("언급 수:Q"),
+            y=alt.Y("종목:N", sort="-x"),
+        ).properties(height=300)
+        st.altair_chart(chart, use_container_width=True)
 
 
 def page_ticker_search(start_date, end_date):
