@@ -98,7 +98,7 @@ else:
 
 # ─── 메뉴 섹션 정의 ──────────────────────────────────
 COMMUNITY_PAGES = ["📈 커뮤니티 개요", "📊 언급량 랭킹", "🚀 급상승 랭킹", "📋 게시글 목록"]
-EXPERT_PAGES = ["📈 전문가 개요", "📊 리포트 랭킹", "📋 리포트 목록"]
+EXPERT_PAGES = ["📈 전문가 개요", "📊 리포트 랭킹", "📋 리포트, 기사 목록"]
 COMBINED_PAGES = ["🏠 종합 대시보드", "🔍 종목 검색"]
 
 # navigate_to → rerun 후, radio 생성 전에 위젯 키 동기화
@@ -168,7 +168,7 @@ PAGE_MAP = {
     # 전문가
     "📈 전문가 개요": expert.page_overview,
     "📊 리포트 랭킹": expert.page_report_ranking,
-    "📋 리포트 목록": expert.page_report_list,
+    "📋 리포트, 기사 목록": expert.page_report_list,
     # 종합
     "🏠 종합 대시보드": combined.page_dashboard,
     "🔍 종목 검색": combined.page_ticker_search,
