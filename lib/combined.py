@@ -23,7 +23,7 @@ def page_dashboard(start_date, end_date):
     c2.metric("🔬 전문가 리포트", f"{kpi_all['expert_reports'].iloc[0]:,}")
 
     # 종목별 교차 분석
-    st.subheader("🔀 종목별 대중 vs 전문가 비교")
+    st.subheader("🔀 종목별 비교")
     cross = run_query("""
         WITH comm_mentions AS (
             SELECT pm.ticker_id, COUNT(*) as comm_cnt,
@@ -37,26 +37,34 @@ def page_dashboard(start_date, end_date):
                    ROUND(((AVG(eam.sentiment) + 1) * 50)::numeric, 1) as expert_sentiment
             FROM expert_article_mentions eam
             JOIN expert_articles ea ON ea.id = eam.article_id
-            WHERE ea.published_date BETWEEN %s AND %s
+            JOIN expert_sources es ON es.id = ea.source_id
+            WHERE ea.published_date BETWEEN %s AND %s AND es.source_type = 'report'
+            GROUP BY eam.ticker_id
+        ),
+        news_mentions AS (
+            SELECT eam.ticker_id, COUNT(*) as news_cnt,
+                   ROUND(((AVG(eam.sentiment) + 1) * 50)::numeric, 1) as news_sentiment
+            FROM expert_article_mentions eam
+            JOIN expert_articles ea ON ea.id = eam.article_id
+            JOIN expert_sources es ON es.id = ea.source_id
+            WHERE ea.published_date BETWEEN %s AND %s AND es.source_type = 'article'
             GROUP BY eam.ticker_id
         )
         SELECT t.name as "종목",
                COALESCE(c.comm_cnt, 0) as "커뮤니티 언급",
                COALESCE(e.expert_cnt, 0) as "전문가 리포트",
+               COALESCE(n.news_cnt, 0) as "뉴스",
                c.comm_sentiment as "대중 감성",
                e.expert_sentiment as "전문가 감성",
-               CASE
-                   WHEN c.comm_sentiment IS NOT NULL AND e.expert_sentiment IS NOT NULL
-                   THEN ROUND((e.expert_sentiment - c.comm_sentiment)::numeric, 1)
-                   ELSE NULL
-               END as "감성 괴리"
+               n.news_sentiment as "뉴스 감성"
         FROM comm_mentions c
         FULL OUTER JOIN expert_mentions e ON c.ticker_id = e.ticker_id
-        JOIN tickers t ON t.id = COALESCE(c.ticker_id, e.ticker_id)
+        FULL OUTER JOIN news_mentions n ON COALESCE(c.ticker_id, e.ticker_id) = n.ticker_id
+        JOIN tickers t ON t.id = COALESCE(c.ticker_id, e.ticker_id, n.ticker_id)
         WHERE t.market NOT IN ('THEME', 'CRYPTO')
-        ORDER BY COALESCE(c.comm_cnt, 0) + COALESCE(e.expert_cnt, 0) DESC
+        ORDER BY COALESCE(c.comm_cnt, 0) + COALESCE(e.expert_cnt, 0) + COALESCE(n.news_cnt, 0) DESC
         LIMIT 30
-    """, (start_date, end_date, start_date, end_date))
+    """, (start_date, end_date, start_date, end_date, start_date, end_date))
 
     if not cross.empty:
         paginated_dataframe(cross, "pg_cross_analysis")
