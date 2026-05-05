@@ -3,7 +3,7 @@
 """
 
 import streamlit as st
-from lib.shared import run_query, paginated_dataframe, period_tabs, PERIOD_DAYS
+from lib.shared import run_query, paginated_dataframe, period_tabs, render_top10_chart, PERIOD_DAYS
 
 
 def page_dashboard(start_date, end_date):
@@ -86,8 +86,6 @@ def page_dashboard(start_date, end_date):
     st.markdown("---")
 
     # TOP 10 차트 3개 (세로 배치)
-    import altair as alt
-
     st.subheader("🔥 채널별 TOP 10 종목")
 
     st.markdown("**📢 커뮤니티**")
@@ -99,14 +97,9 @@ def page_dashboard(start_date, end_date):
         WHERE p.post_date BETWEEN %s AND %s AND t.market NOT IN ('THEME', 'CRYPTO')
         GROUP BY t.name ORDER BY COUNT(*) DESC LIMIT 10
     """, (period_start, end_date))
-    if not comm_top.empty:
-        chart = alt.Chart(comm_top).mark_bar().encode(
-            x=alt.X("언급 수:Q"),
-            y=alt.Y("종목:N", sort="-x"),
-        ).properties(height=300)
-        st.altair_chart(chart, use_container_width=True)
+    render_top10_chart(comm_top, height=300)
 
-    st.markdown("**🔬 전문가**")
+    st.markdown("**🔬 리포트**")
     expert_top = run_query("""
         SELECT t.name as "종목", COUNT(*) as "언급 수"
         FROM expert_article_mentions eam
@@ -116,12 +109,7 @@ def page_dashboard(start_date, end_date):
         WHERE ea.published_date BETWEEN %s AND %s AND es.source_type = 'report'
         GROUP BY t.name ORDER BY COUNT(*) DESC LIMIT 10
     """, (period_start, end_date))
-    if not expert_top.empty:
-        chart = alt.Chart(expert_top).mark_bar().encode(
-            x=alt.X("언급 수:Q"),
-            y=alt.Y("종목:N", sort="-x"),
-        ).properties(height=300)
-        st.altair_chart(chart, use_container_width=True)
+    render_top10_chart(expert_top, height=300)
 
     st.markdown("**📰 뉴스**")
     news_top = run_query("""
@@ -133,12 +121,7 @@ def page_dashboard(start_date, end_date):
         WHERE ea.published_date BETWEEN %s AND %s AND es.source_type = 'article'
         GROUP BY t.name ORDER BY COUNT(*) DESC LIMIT 10
     """, (period_start, end_date))
-    if not news_top.empty:
-        chart = alt.Chart(news_top).mark_bar().encode(
-            x=alt.X("언급 수:Q"),
-            y=alt.Y("종목:N", sort="-x"),
-        ).properties(height=300)
-        st.altair_chart(chart, use_container_width=True)
+    render_top10_chart(news_top, height=300)
 
 
 def page_ticker_search(start_date, end_date):

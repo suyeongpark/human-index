@@ -110,3 +110,50 @@ PERIOD_DAYS = {"일간": 1, "주간": 7, "월간": 30, "연간": 365}
 def period_tabs(key: str) -> str:
     """집계 기간을 탭 스타일(horizontal radio) UI로 선택. 선택된 기간 문자열 반환."""
     return st.radio("📅 집계 기간", PERIOD_OPTIONS, key=key, horizontal=True, label_visibility="collapsed")
+
+
+# ─── 공통 UI 컴포넌트 ──────────────────────────────────
+
+def render_top10_chart(df, x_label="언급 수", height=350):
+    """TOP 10 수평 바 차트 렌더링. df는 '종목', x_label 컬럼 필요."""
+    if df.empty:
+        return
+    import altair as alt
+    chart = alt.Chart(df).mark_bar().encode(
+        x=alt.X(f"{x_label}:Q"),
+        y=alt.Y("종목:N", sort="-x"),
+    ).properties(height=height)
+    st.altair_chart(chart, use_container_width=True)
+
+
+def render_trend_chart(query, params):
+    """트렌드 라인 차트. 쿼리 결과의 첫 번째 컬럼을 인덱스로 사용."""
+    df = run_query(query, params)
+    if not df.empty:
+        st.line_chart(df.set_index(df.columns[0]))
+    return df
+
+
+def render_surge_page(title, query_template, period_key, end_date, start_date, page_key):
+    """급상승 랭킹 페이지 공통 로직.
+    query_template: recent/prev CTE용 쿼리. %s 4개 (recent_start, recent_end, prev_start, prev_end).
+    """
+    from datetime import timedelta
+
+    st.title(title)
+    period = period_tabs(period_key)
+    days = PERIOD_DAYS[period]
+
+    recent_end = end_date
+    recent_start = end_date - timedelta(days=days - 1)
+    prev_end = recent_start - timedelta(days=1)
+    prev_start = prev_end - timedelta(days=days - 1)
+
+    st.caption(f"최근: {recent_start} ~ {recent_end}  vs  이전: {prev_start} ~ {prev_end}")
+
+    surge = run_query(query_template, (recent_start, recent_end, prev_start, prev_end))
+
+    if not surge.empty:
+        paginated_dataframe(surge, page_key)
+    else:
+        st.info("비교할 데이터가 부족합니다.")
