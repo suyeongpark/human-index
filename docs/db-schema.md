@@ -35,7 +35,7 @@ erDiagram
         int community_id FK
         varchar title
         varchar author
-        date post_date
+        timestamp post_date
         timestamptz collected_at
         varchar source_url
     }
@@ -144,7 +144,7 @@ erDiagram
 | `community_id` | `INTEGER` | `NOT NULL, FK → communities.id` | 출처 커뮤니티 |
 | `title` | `TEXT` | `NOT NULL` | 게시글 제목 (full text) |
 | `author` | `VARCHAR(200)` | | 작성자 |
-| `post_date` | `DATE` | `NOT NULL` | 게시글 작성일 |
+| `post_date` | `TIMESTAMP` | `NOT NULL` | 게시글 작성일시 |
 | `collected_at` | `TIMESTAMPTZ` | `NOT NULL DEFAULT NOW()` | 수집 일시 |
 | `source_url` | `VARCHAR(1000)` | | 원본 게시글 URL (중복 수집 방지용) |
 
@@ -358,7 +358,7 @@ CREATE TABLE posts (
     community_id    INTEGER         NOT NULL REFERENCES communities(id),
     title           TEXT            NOT NULL,
     author          VARCHAR(200),
-    post_date       DATE            NOT NULL,
+    post_date       TIMESTAMP       NOT NULL,
     collected_at    TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
     source_url      VARCHAR(1000)
 );

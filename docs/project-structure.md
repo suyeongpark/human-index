@@ -85,6 +85,7 @@ human-index/
 │
 ├── scripts/                            # 데이터 수집 & 처리 스크립트
 │   ├── db_config.py                    # DB 접속 설정
+│   ├── crawler_config.py               # 크롤러 설정 (커뮤니티/별칭/감성 키워드 상수)
 │   ├── daily_worker.py                 # 커뮤니티 통합 파이프라인 (크롤링→추출→감성)
 │   ├── crawl_hankyung.py               # 한경 컨센서스 크롤러
 │   ├── crawl_google_news.py            # Google News RSS 크롤러
@@ -126,9 +127,9 @@ human-index/
 |------|-----------|------|
 | DB | `run_query()` | 쿼리 → DataFrame (자동 재연결) |
 | UI | `page_header(title, caption)` | 통일된 페이지 타이틀 + 캡션 + 구분선 |
-| UI | `pagination_bar(page, total_pages, ...)` | 통일된 ‹ 1/N › 페이지네이션 |
+| UI | `pagination_bar(page, total_pages, ...)` | 통일된 ⏮‹ 1/N ›⏭ 페이지네이션 |
 | UI | `paginated_dataframe(df, key)` | 25건 단위 테이블 + 페이지네이션 |
-| UI | `period_tabs(key)` | 일간/주간/월간/연간 pill 탭 |
+| UI | `period_tabs(key, include_daily)` | 주간/월간/연간 pill 탭 (include_daily=True 시 일간 포함) |
 | 차트 | `render_top10_chart()` | TOP 10 수평 바 차트 (Altair) |
 | 차트 | `render_colored_line_chart()` | 감성 색상 라인 차트 (긍정=🔵/부정=🔴/중립=⚪) |
 | 차트 | `render_surge_page()` | 급상승 랭킹 공통 로직 |
@@ -205,9 +206,11 @@ flowchart LR
     D --> E[post_mentions INSERT]
 ```
 
-- 3개 커뮤니티를 `COMMUNITIES` 배열로 관리, `PARSERS` dict로 파서 함수 등록
+- 4개 커뮤니티를 `crawler_config.py`의 `COMMUNITIES` 배열로 관리, `PARSERS` dict로 파서 함수 등록
 - `source_url` 기준 `ON CONFLICT DO NOTHING`으로 중복 방지
-- 2연속 중복 페이지 감지 시 자동 종료
+- URL 기반 워터마크(`known_urls`)로 정확한 중복 판정 및 조기 종료
+- 종목 매칭: `ticker_map` 키를 `upper()`로 통일하여 대소문자 무시 매칭
+- `EXTRA_ALIASES` (1:1) + `MULTI_ALIASES` (1:N, 예: 삼닉→삼성전자+하이닉스) 지원
 
 ### 전문가 파이프라인
 

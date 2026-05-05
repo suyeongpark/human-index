@@ -21,6 +21,7 @@
 | 파일 | 역할 |
 |------|------|
 | `db_config.py` | DB 접속 설정 (secrets.toml → 환경변수 → 기본값 순) |
+| `crawler_config.py` | 크롤러 상수 (커뮤니티 목록, 별칭 매핑, 감성 키워드, 오매칭 방지) |
 | `daily_worker.py` | 커뮤니티 크롤링 통합 파이프라인 + 종목 추출 + 감성 분석 |
 | `crawl_hankyung.py` | 한경 컨센서스 리포트 크롤러 (독립 실행) |
 | `crawl_google_news.py` | Google News RSS 파서 (독립 실행) |
@@ -81,9 +82,9 @@ def page_overview(start_date, end_date):
 | 함수 | 용도 | 사용 예 |
 |------|------|---------|
 | `page_header(title, caption)` | 페이지 타이틀 + 캡션 + 구분선 | 모든 페이지 상단 |
-| `pagination_bar(page, total_pages, key, prefix)` | ‹ 1/N › 네비게이션 | 목록 페이지 하단 |
+| `pagination_bar(page, total_pages, key, prefix)` | ⏮ ◀ 1/N ▶ ⏭ 네비게이션 | 목록 페이지 하단 |
 | `paginated_dataframe(df, key)` | 25건 테이블 + 페이지네이션 | 랭킹 테이블 |
-| `period_tabs(key)` | 일간/주간/월간/연간 pill 탭 | 기간 선택 |
+| `period_tabs(key, include_daily=False)` | 주간/월간/연간 pill 탭 | 기간 선택 (일간은 랭킹/대시보드에만) |
 
 ### 사용 규칙
 
@@ -121,8 +122,16 @@ SCORE_WEIGHT_NEUTRAL  = 1.0   # 중립
 
 ### 새 커뮤니티 소스 추가
 
-1. `daily_worker.py`의 `COMMUNITIES` 배열에 설정 추가
-2. `PARSERS` dict에 파서 함수 등록
+1. `crawler_config.py`의 `COMMUNITIES` 배열에 설정 추가
+2. `daily_worker.py`의 `PARSERS` dict에 파서 함수 등록
+
+### 종목 별칭 추가
+
+1. 1:1 매핑: `crawler_config.py`의 `EXTRA_ALIASES`에 추가
+2. 1:N 매핑 (커뮤니티 합성어): `MULTI_ALIASES`에 추가
+3. 오매칭 방지: `SKIP_NAMES`에 추가
+
+> 종목 매칭은 제목과 키워드 모두 `upper()`로 변환하여 대소문자 무시 매칭합니다.
 
 ### 새 전문가 소스 추가
 
