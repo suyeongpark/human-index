@@ -43,10 +43,11 @@
 
 | 파일 | 역할 |
 |------|------|
-| `shared.py` | DB 연결, `run_query()`, `navigate_to()`, `paginated_dataframe()`, 상수 |
+| `shared.py` | DB 연결, `run_query()`, 페이지네이션, 차트 헬퍼(`render_top10_chart`, `render_colored_line_chart`, `render_surge_page`), 상수 |
 | `community.py` | 커뮤니티 페이지 5개 (개요, 랭킹, 급상승, 작성자, 게시글 목록) |
-| `expert.py` | 전문가 페이지 3개 (개요, 리포트 랭킹, 리포트 목록) |
-| `combined.py` | 종합 페이지 2개 (교차 분석, 종목 검색) |
+| `report.py` | 리포트 페이지 4개 (개요, 랭킹, 급상승, 리포트 목록) |
+| `news.py` | 뉴스 페이지 4개 (개요, 랭킹, 급상승, 뉴스 목록) |
+| `overview.py` | 종합 페이지 2개 (교차 분석, 종목 검색) |
 
 - 공통 기능은 반드시 `shared.py`에 함수로 분리한다
 - 각 페이지 함수는 `page_xxx(start_date, end_date)` 시그니처를 따른다
