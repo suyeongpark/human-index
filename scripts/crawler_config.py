@@ -105,15 +105,19 @@ SKIP_NAMES = {
 }
 
 
-# ─── 감성 분석 키워드 ───────────────────────────────────
-POSITIVE_WORDS = [
-    "상승", "급등", "폭등", "상한가", "신고가", "돌파", "오르",
-    "올라", "올랐", "매수", "사야", "호재", "기대", "수익",
-    "대박", "반등", "회복", "날아", "간다", "갑니다", "가즈아",
-]
+# ─── 감성 분석 키워드 (CSV) ──────────────────────────────
+def _load_sentiment_words() -> tuple[list, list]:
+    """sentiment_words.csv → (positive_list, negative_list)"""
+    path = os.path.join(_DATA_DIR, "sentiment_words.csv")
+    positive, negative = [], []
+    with open(path, "r", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            word = row["word"].strip()
+            if row["sentiment"].strip() == "positive":
+                positive.append(word)
+            elif row["sentiment"].strip() == "negative":
+                negative.append(word)
+    return positive, negative
 
-NEGATIVE_WORDS = [
-    "하락", "급락", "폭락", "폭망", "하한가", "추락", "내려",
-    "떨어", "빠지", "매도", "팔아", "악재", "하방", "손절",
-    "망했", "물렸", "파업", "리스크", "규제", "제재", "우려",
-]
+POSITIVE_WORDS, NEGATIVE_WORDS = _load_sentiment_words()
