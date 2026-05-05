@@ -66,9 +66,7 @@ def page_overview(start_date, end_date):
     top_start = max(start_date, top_end - timedelta(days=PERIOD_DAYS[period]))
     st.subheader("🔥 TOP 10 커버 종목")
     top_cover = run_query("""
-        SELECT t.name as "종목", COUNT(*) as "리포트 수",
-               COUNT(DISTINCT ea.securities_firm) as "증권사 수",
-               STRING_AGG(DISTINCT ea.securities_firm, ', ') as "커버 증권사"
+        SELECT t.name as "종목", COUNT(*) as "리포트 수"
         FROM expert_article_mentions eam
         JOIN tickers t ON t.id = eam.ticker_id
         JOIN expert_articles ea ON ea.id = eam.article_id
@@ -76,7 +74,12 @@ def page_overview(start_date, end_date):
         GROUP BY t.name ORDER BY COUNT(*) DESC LIMIT 10
     """, (top_start, top_end))
     if not top_cover.empty:
-        paginated_dataframe(top_cover, "pg_top_cover", height=400)
+        import altair as alt
+        chart = alt.Chart(top_cover).mark_bar().encode(
+            x=alt.X("리포트 수:Q"),
+            y=alt.Y("종목:N", sort="-x"),
+        ).properties(height=350)
+        st.altair_chart(chart, use_container_width=True)
 
 
 def page_report_ranking(start_date, end_date):
