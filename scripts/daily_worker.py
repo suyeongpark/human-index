@@ -290,19 +290,15 @@ def crawl_fmkorea_page(url: str) -> list[dict]:
     soup = BeautifulSoup(resp.text, "html.parser")
 
     posts = []
-    # 게시글 목록 테이블
     for row in soup.select("tr"):
-        title_td = row.select_one("td.title")
-        if not title_td:
-            continue
-
-        title_a = title_td.select_one("a")
+        # 제목 링크 (에펨코리아 Sketchbook5 스킨: a.hx)
+        title_a = row.select_one("a.hx")
         if not title_a:
             continue
 
-        # 공지 제외
-        notice = row.select_one("td.notice")
-        if notice:
+        # 공지 제외: 첫 번째 링크 텍스트에 '공지' 포함 시 스킵
+        first_a = row.select_one("a")
+        if first_a and "공지" in first_a.get_text():
             continue
 
         # 제목 (댓글 수 제외)
