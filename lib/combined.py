@@ -207,6 +207,9 @@ def page_ticker_search(start_date, end_date):
     # 기간 선택
     period = period_tabs("ticker_search_period")
     from lib.shared import PERIOD_SQL
+    from datetime import timedelta
+    days = PERIOD_DAYS[period]
+    period_start = max(start_date, end_date - timedelta(days=days))
     date_sel_post = PERIOD_SQL[period]["select"].format(date_col="p.post_date")
     date_grp_post = PERIOD_SQL[period]["group"].format(date_col="p.post_date")
     date_sel_ea = PERIOD_SQL[period]["select"].format(date_col="ea.published_date")
@@ -255,9 +258,9 @@ def page_ticker_search(start_date, end_date):
         JOIN expert_articles ea ON ea.id = eam.article_id
         JOIN expert_sources es ON es.id = ea.source_id
         WHERE eam.ticker_id = %s AND ea.published_date BETWEEN %s AND %s AND es.source_type = 'article'
-    """, (ticker_id, start_date, end_date,
-          ticker_id, start_date, end_date,
-          ticker_id, start_date, end_date))
+    """, (ticker_id, period_start, end_date,
+          ticker_id, period_start, end_date,
+          ticker_id, period_start, end_date))
 
     if not stats.empty:
         st.dataframe(stats, use_container_width=True, hide_index=True)
@@ -276,7 +279,7 @@ def page_ticker_search(start_date, end_date):
         JOIN posts p ON p.id = pm.post_id
         WHERE pm.ticker_id = %s AND p.post_date BETWEEN %s AND %s
         GROUP BY {date_grp_post} ORDER BY 1
-    """, (ticker_id, start_date, end_date))
+    """, (ticker_id, period_start, end_date))
     if not comm_trend.empty:
         st.line_chart(comm_trend.set_index("날짜"))
     else:
@@ -297,7 +300,7 @@ def page_ticker_search(start_date, end_date):
         JOIN expert_sources es ON es.id = ea.source_id
         WHERE eam.ticker_id = %s AND ea.published_date BETWEEN %s AND %s AND es.source_type = 'report'
         GROUP BY {date_grp_ea} ORDER BY 1
-    """, (ticker_id, start_date, end_date))
+    """, (ticker_id, period_start, end_date))
     if not rpt_trend.empty:
         st.line_chart(rpt_trend.set_index("날짜"))
     else:
@@ -318,7 +321,7 @@ def page_ticker_search(start_date, end_date):
         JOIN expert_sources es ON es.id = ea.source_id
         WHERE eam.ticker_id = %s AND ea.published_date BETWEEN %s AND %s AND es.source_type = 'article'
         GROUP BY {date_grp_ea} ORDER BY 1
-    """, (ticker_id, start_date, end_date))
+    """, (ticker_id, period_start, end_date))
     if not news_trend.empty:
         st.line_chart(news_trend.set_index("날짜"))
     else:
