@@ -64,7 +64,7 @@ def page_overview(start_date, end_date):
     from datetime import timedelta
     top_end = end_date
     top_start = max(start_date, top_end - timedelta(days=PERIOD_DAYS[period]))
-    st.subheader(f"🔥 TOP 10 커버 종목 ({period})")
+    st.subheader("🔥 TOP 10 커버 종목")
     top_cover = run_query("""
         SELECT t.name as "종목", COUNT(*) as "리포트 수",
                COUNT(DISTINCT ea.securities_firm) as "증권사 수",

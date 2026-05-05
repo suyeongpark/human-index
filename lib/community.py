@@ -58,7 +58,7 @@ def page_overview(start_date, end_date):
     from datetime import date as _date
     top_end = end_date
     top_start = max(start_date, top_end - timedelta(days=PERIOD_DAYS[period]))
-    st.subheader(f"🔥 TOP 10 언급 종목 ({period})")
+    st.subheader("🔥 TOP 10 언급 종목")
     top_tickers = run_query("""
         SELECT t.name as "종목", COUNT(*) as "언급 수"
         FROM post_mentions pm
@@ -69,7 +69,7 @@ def page_overview(start_date, end_date):
         GROUP BY t.name ORDER BY COUNT(*) DESC LIMIT 10
     """, (top_start, top_end))
     if not top_tickers.empty:
-        st.bar_chart(top_tickers.set_index("종목"))
+        st.bar_chart(top_tickers.set_index("종목").iloc[::-1], horizontal=True)
 
 
 def page_mention_ranking(start_date, end_date):
