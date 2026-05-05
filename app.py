@@ -19,12 +19,12 @@ st.set_page_config(
 
 # ─── Google Analytics (GA4) ───────────────────────────
 components.html("""
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-WW9WTSV3C0"></script>
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-Y7CGYXM3WN"></script>
 <script>
     window.dataLayer = window.dataLayer || [];
     function gtag(){dataLayer.push(arguments);}
     gtag('js', new Date());
-    gtag('config', 'G-WW9WTSV3C0');
+    gtag('config', 'G-Y7CGYXM3WN');
 </script>
 """, height=0)
 
