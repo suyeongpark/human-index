@@ -361,7 +361,7 @@ def _build_page_url(community: dict, page: int) -> str:
 
 
 def crawl_community(cur, community: dict) -> int:
-    """커뮤니티 크롤링 + DB 저장. source_url 중복 감지로 자동 종료."""
+    """커뮤니티 크롤링 + DB 저장. 기존 URL 기반 중복 감지로 자동 종료."""
     community_id = ensure_community(cur, community)
     total_inserted = 0
     consecutive_dup_pages = 0
@@ -371,6 +371,13 @@ def crawl_community(cur, community: dict) -> int:
     if not parse_fn:
         log.error(f"  알 수 없는 파서: {parser_name}")
         return 0
+
+    # 최근 수집된 URL을 미리 로드하여 정확한 중복 판정
+    cur.execute(
+        "SELECT source_url FROM posts WHERE community_id = %s ORDER BY id DESC LIMIT 1000",
+        (community_id,),
+    )
+    known_urls = {row[0] for row in cur.fetchall() if row[0]}
 
     for page in range(community["max_pages"]):
         url = _build_page_url(community, page)
@@ -385,8 +392,10 @@ def crawl_community(cur, community: dict) -> int:
             log.info(f"  페이지 {page+1}: 게시글 없음, 종료")
             break
 
+        # 새 글만 필터링하여 INSERT
+        new_posts = [p for p in posts if p.get("source_url") not in known_urls]
         inserted = 0
-        for post in posts:
+        for post in new_posts:
             cur.execute(
                 """
                 INSERT INTO posts (community_id, title, author, post_date, source_url)
@@ -398,10 +407,12 @@ def crawl_community(cur, community: dict) -> int:
             )
             if cur.rowcount > 0:
                 inserted += 1
+                known_urls.add(post["source_url"])
 
         total_inserted += inserted
         log.info(f"  페이지 {page+1}: +{inserted} 신규 / {len(posts)} 수집")
 
+        # 페이지 전체가 이미 수집된 글이면 중복 페이지
         if inserted == 0:
             consecutive_dup_pages += 1
             if consecutive_dup_pages >= 2:
