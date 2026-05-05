@@ -58,7 +58,7 @@ st.markdown("""
 
 # ─── 세션 상태 초기화 ────────────────────────────────
 if "page" not in st.session_state:
-    st.session_state.page = "📈 커뮤니티 개요"
+    st.session_state.page = "🏠 종합 대시보드"
 if "nav_ticker_symbol" not in st.session_state:
     st.session_state.nav_ticker_symbol = None
 if "nav_search_keyword" not in st.session_state:
@@ -123,10 +123,18 @@ expert_idx = EXPERT_PAGES.index(current) if current in EXPERT_PAGES else None
 news_idx = NEWS_PAGES.index(current) if current in NEWS_PAGES else None
 combined_idx = COMBINED_PAGES.index(current) if current in COMBINED_PAGES else None
 
+st.sidebar.markdown("#### 📊 종합")
+st.sidebar.radio(
+    "종합", COMBINED_PAGES, key="_radio_combined",
+    index=combined_idx if combined_idx is not None else 0,
+    on_change=_make_handler("_radio_combined", ["_radio_community", "_radio_expert", "_radio_news"]),
+    label_visibility="collapsed",
+)
+
 st.sidebar.markdown("#### 📢 커뮤니티")
 st.sidebar.radio(
     "커뮤니티", COMMUNITY_PAGES, key="_radio_community",
-    index=comm_idx if comm_idx is not None else 0,
+    index=comm_idx if comm_idx is not None else None,
     on_change=_make_handler("_radio_community", ["_radio_expert", "_radio_news", "_radio_combined"]),
     label_visibility="collapsed",
 )
@@ -144,14 +152,6 @@ st.sidebar.radio(
     "뉴스", NEWS_PAGES, key="_radio_news",
     index=news_idx if news_idx is not None else None,
     on_change=_make_handler("_radio_news", ["_radio_community", "_radio_expert", "_radio_combined"]),
-    label_visibility="collapsed",
-)
-
-st.sidebar.markdown("#### 📊 종합")
-st.sidebar.radio(
-    "종합", COMBINED_PAGES, key="_radio_combined",
-    index=combined_idx if combined_idx is not None else None,
-    on_change=_make_handler("_radio_combined", ["_radio_community", "_radio_expert", "_radio_news"]),
     label_visibility="collapsed",
 )
 
