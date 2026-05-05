@@ -10,31 +10,29 @@ from lib.shared import (
     SCORE_WEIGHT_POSITIVE, SCORE_WEIGHT_NEGATIVE, SCORE_WEIGHT_NEUTRAL,
 )
 
-# 뉴스 기사만 필터링하기 위한 공통 JOIN/WHERE 조각
-_NEWS_JOIN = """
-    JOIN expert_sources es ON es.id = ea.source_id
-"""
-_NEWS_FILTER = "es.source_type = 'article'"
-
 
 def page_overview(start_date, end_date):
     """📈 뉴스 개요"""
     st.title("📰 뉴스 대시보드")
     st.caption("Google News 기사 감성 분석")
 
-    kpi = run_query(f"""
+    kpi = run_query("""
         SELECT
-            (SELECT COUNT(*) FROM expert_articles ea {_NEWS_JOIN}
-             WHERE ea.published_date BETWEEN %s AND %s AND {_NEWS_FILTER}) as total_articles,
+            (SELECT COUNT(*) FROM expert_articles ea
+             JOIN expert_sources es ON es.id = ea.source_id
+             WHERE ea.published_date BETWEEN %s AND %s AND es.source_type = 'article') as total_articles,
             (SELECT COUNT(DISTINCT eam.ticker_id) FROM expert_article_mentions eam
-             JOIN expert_articles ea ON ea.id = eam.article_id {_NEWS_JOIN}
-             WHERE ea.published_date BETWEEN %s AND %s AND {_NEWS_FILTER}) as unique_tickers,
+             JOIN expert_articles ea ON ea.id = eam.article_id
+             JOIN expert_sources es ON es.id = ea.source_id
+             WHERE ea.published_date BETWEEN %s AND %s AND es.source_type = 'article') as unique_tickers,
             (SELECT COUNT(*) FROM expert_article_mentions eam
-             JOIN expert_articles ea ON ea.id = eam.article_id {_NEWS_JOIN}
-             WHERE ea.published_date BETWEEN %s AND %s AND {_NEWS_FILTER} AND eam.sentiment = 1) as pos_cnt,
+             JOIN expert_articles ea ON ea.id = eam.article_id
+             JOIN expert_sources es ON es.id = ea.source_id
+             WHERE ea.published_date BETWEEN %s AND %s AND es.source_type = 'article' AND eam.sentiment = 1) as pos_cnt,
             (SELECT COUNT(*) FROM expert_article_mentions eam
-             JOIN expert_articles ea ON ea.id = eam.article_id {_NEWS_JOIN}
-             WHERE ea.published_date BETWEEN %s AND %s AND {_NEWS_FILTER} AND eam.sentiment <= 0) as other_cnt
+             JOIN expert_articles ea ON ea.id = eam.article_id
+             JOIN expert_sources es ON es.id = ea.source_id
+             WHERE ea.published_date BETWEEN %s AND %s AND es.source_type = 'article' AND eam.sentiment <= 0) as other_cnt
     """, (start_date, end_date) * 4)
 
     c1, c2, c3, c4 = st.columns(4)
@@ -62,8 +60,8 @@ def page_overview(start_date, end_date):
                COUNT(*) FILTER (WHERE eam.sentiment = -1) as "👎 부정"
         FROM expert_article_mentions eam
         JOIN expert_articles ea ON ea.id = eam.article_id
-        {_NEWS_JOIN}
-        WHERE ea.published_date BETWEEN %s AND %s AND {_NEWS_FILTER}
+        JOIN expert_sources es ON es.id = ea.source_id
+        WHERE ea.published_date BETWEEN %s AND %s AND es.source_type = 'article'
         GROUP BY {date_grp} ORDER BY 1
     """, (start_date, end_date))
     if not trend.empty:
@@ -76,13 +74,13 @@ def page_overview(start_date, end_date):
     top_end = end_date
     top_start = max(start_date, top_end - timedelta(days=PERIOD_DAYS[period]))
     st.subheader("🔥 TOP 10 언급 종목")
-    top = run_query(f"""
+    top = run_query("""
         SELECT t.name as "종목", COUNT(*) as "언급 수"
         FROM expert_article_mentions eam
         JOIN tickers t ON t.id = eam.ticker_id
         JOIN expert_articles ea ON ea.id = eam.article_id
-        {_NEWS_JOIN}
-        WHERE ea.published_date BETWEEN %s AND %s AND {_NEWS_FILTER}
+        JOIN expert_sources es ON es.id = ea.source_id
+        WHERE ea.published_date BETWEEN %s AND %s AND es.source_type = 'article'
         GROUP BY t.name ORDER BY COUNT(*) DESC LIMIT 10
     """, (top_start, top_end))
     if not top.empty:
@@ -98,7 +96,7 @@ def page_mention_ranking(start_date, end_date):
     """📊 기사 언급량 랭킹"""
     st.title("📊 기사 언급량 랭킹")
 
-    ranking = run_query(f"""
+    ranking = run_query("""
         SELECT t.symbol as "심볼", t.name as "종목명", t.market as "시장",
                COUNT(*) as "총 언급",
                COUNT(*) FILTER (WHERE eam.sentiment = 1) as "👍 긍정",
@@ -114,8 +112,8 @@ def page_mention_ranking(start_date, end_date):
         FROM expert_article_mentions eam
         JOIN tickers t ON t.id = eam.ticker_id
         JOIN expert_articles ea ON ea.id = eam.article_id
-        {_NEWS_JOIN}
-        WHERE ea.published_date BETWEEN %s AND %s AND {_NEWS_FILTER}
+        JOIN expert_sources es ON es.id = ea.source_id
+        WHERE ea.published_date BETWEEN %s AND %s AND es.source_type = 'article'
         GROUP BY t.symbol, t.name, t.market
         ORDER BY "⭐ 가중 점수" DESC
     """, (SCORE_WEIGHT_POSITIVE, SCORE_WEIGHT_NEGATIVE, SCORE_WEIGHT_NEUTRAL,
@@ -140,18 +138,18 @@ def page_article_list(start_date, end_date):
     with col1:
         search = st.text_input("🔎 제목 검색", placeholder="종목명 또는 키워드", key="news_search")
     with col2:
-        sources = run_query(f"""
+        sources = run_query("""
             SELECT DISTINCT ea.securities_firm FROM expert_articles ea
-            {_NEWS_JOIN}
+            JOIN expert_sources es ON es.id = ea.source_id
             WHERE ea.securities_firm IS NOT NULL AND ea.published_date BETWEEN %s AND %s
-              AND {_NEWS_FILTER}
+              AND es.source_type = 'article'
             ORDER BY ea.securities_firm
         """, (start_date, end_date))
         source_list = ["전체"] + sources["securities_firm"].tolist()
         selected_source = st.selectbox("📰 언론사", source_list, key="news_source")
 
     # 쿼리 조건
-    conditions = [f"ea.published_date BETWEEN %s AND %s", _NEWS_FILTER]
+    conditions = ["ea.published_date BETWEEN %s AND %s", "es.source_type = 'article'"]
     params = [start_date, end_date]
 
     if search:
@@ -164,7 +162,9 @@ def page_article_list(start_date, end_date):
     where = " AND ".join(conditions)
 
     count_df = run_query(f"""
-        SELECT COUNT(*) as cnt FROM expert_articles ea {_NEWS_JOIN} WHERE {where}
+        SELECT COUNT(*) as cnt FROM expert_articles ea
+        JOIN expert_sources es ON es.id = ea.source_id
+        WHERE {where}
     """, params)
     total = int(count_df["cnt"].iloc[0]) if len(count_df) > 0 else 0
 
@@ -178,7 +178,7 @@ def page_article_list(start_date, end_date):
                t.name as "종목",
                ea.source_url as "링크"
         FROM expert_articles ea
-        {_NEWS_JOIN}
+        JOIN expert_sources es ON es.id = ea.source_id
         LEFT JOIN expert_article_mentions eam ON eam.article_id = ea.id
         LEFT JOIN tickers t ON t.id = eam.ticker_id
         WHERE {where}

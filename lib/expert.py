@@ -5,33 +5,32 @@
 import streamlit as st
 from lib.shared import run_query, paginated_dataframe, PERIOD_OPTIONS, PERIOD_SQL, PERIOD_DAYS
 
-# 리포트만 필터링하기 위한 공통 JOIN/WHERE 조각
-_RPT_JOIN = """
-    JOIN expert_sources es ON es.id = ea.source_id
-"""
-_RPT_FILTER = "es.source_type = 'report'"
-
 
 def page_overview(start_date, end_date):
     """📈 전문가 개요"""
     st.title("🔬 전문가 대시보드")
     st.caption("증권사 리포트 분석 (전문가 의견)")
 
-    kpi_ex = run_query(f"""
+    kpi_ex = run_query("""
         SELECT
-            (SELECT COUNT(*) FROM expert_articles ea {_RPT_JOIN}
-             WHERE ea.published_date BETWEEN %s AND %s AND {_RPT_FILTER}) as total_reports,
+            (SELECT COUNT(*) FROM expert_articles ea
+             JOIN expert_sources es ON es.id = ea.source_id
+             WHERE ea.published_date BETWEEN %s AND %s AND es.source_type = 'report') as total_reports,
             (SELECT COUNT(DISTINCT eam.ticker_id) FROM expert_article_mentions eam
-             JOIN expert_articles ea ON ea.id = eam.article_id {_RPT_JOIN}
-             WHERE ea.published_date BETWEEN %s AND %s AND {_RPT_FILTER}) as unique_tickers,
-            (SELECT COUNT(DISTINCT ea.securities_firm) FROM expert_articles ea {_RPT_JOIN}
-             WHERE ea.published_date BETWEEN %s AND %s AND {_RPT_FILTER} AND ea.securities_firm IS NOT NULL) as firms,
+             JOIN expert_articles ea ON ea.id = eam.article_id
+             JOIN expert_sources es ON es.id = ea.source_id
+             WHERE ea.published_date BETWEEN %s AND %s AND es.source_type = 'report') as unique_tickers,
+            (SELECT COUNT(DISTINCT ea.securities_firm) FROM expert_articles ea
+             JOIN expert_sources es ON es.id = ea.source_id
+             WHERE ea.published_date BETWEEN %s AND %s AND es.source_type = 'report' AND ea.securities_firm IS NOT NULL) as firms,
             (SELECT COUNT(*) FROM expert_article_mentions eam
-             JOIN expert_articles ea ON ea.id = eam.article_id {_RPT_JOIN}
-             WHERE ea.published_date BETWEEN %s AND %s AND {_RPT_FILTER} AND eam.sentiment = 1) as buy_cnt,
+             JOIN expert_articles ea ON ea.id = eam.article_id
+             JOIN expert_sources es ON es.id = ea.source_id
+             WHERE ea.published_date BETWEEN %s AND %s AND es.source_type = 'report' AND eam.sentiment = 1) as buy_cnt,
             (SELECT COUNT(*) FROM expert_article_mentions eam
-             JOIN expert_articles ea ON ea.id = eam.article_id {_RPT_JOIN}
-             WHERE ea.published_date BETWEEN %s AND %s AND {_RPT_FILTER} AND eam.sentiment <= 0) as other_cnt
+             JOIN expert_articles ea ON ea.id = eam.article_id
+             JOIN expert_sources es ON es.id = ea.source_id
+             WHERE ea.published_date BETWEEN %s AND %s AND es.source_type = 'report' AND eam.sentiment <= 0) as other_cnt
     """, (start_date, end_date) * 5)
 
     c1, c2, c3, c4 = st.columns(4)
@@ -59,8 +58,8 @@ def page_overview(start_date, end_date):
                COUNT(*) FILTER (WHERE eam.sentiment = -1) as "📉 Sell"
         FROM expert_article_mentions eam
         JOIN expert_articles ea ON ea.id = eam.article_id
-        {_RPT_JOIN}
-        WHERE ea.published_date BETWEEN %s AND %s AND {_RPT_FILTER}
+        JOIN expert_sources es ON es.id = ea.source_id
+        WHERE ea.published_date BETWEEN %s AND %s AND es.source_type = 'report'
         GROUP BY {date_grp} ORDER BY 1
     """, (start_date, end_date))
     if not expert_trend.empty:
@@ -73,13 +72,13 @@ def page_overview(start_date, end_date):
     top_end = end_date
     top_start = max(start_date, top_end - timedelta(days=PERIOD_DAYS[period]))
     st.subheader("🔥 TOP 10 커버 종목")
-    top_cover = run_query(f"""
+    top_cover = run_query("""
         SELECT t.name as "종목", COUNT(*) as "리포트 수"
         FROM expert_article_mentions eam
         JOIN tickers t ON t.id = eam.ticker_id
         JOIN expert_articles ea ON ea.id = eam.article_id
-        {_RPT_JOIN}
-        WHERE ea.published_date BETWEEN %s AND %s AND {_RPT_FILTER}
+        JOIN expert_sources es ON es.id = ea.source_id
+        WHERE ea.published_date BETWEEN %s AND %s AND es.source_type = 'report'
         GROUP BY t.name ORDER BY COUNT(*) DESC LIMIT 10
     """, (top_start, top_end))
     if not top_cover.empty:
@@ -95,7 +94,7 @@ def page_report_ranking(start_date, end_date):
     """📊 리포트 랭킹"""
     st.title("📊 종목별 리포트 랭킹")
 
-    rpt_ranking = run_query(f"""
+    rpt_ranking = run_query("""
         SELECT t.symbol as "심볼", t.name as "종목명",
                COUNT(*) as "리포트 수",
                COUNT(DISTINCT ea.securities_firm) as "증권사 수",
@@ -112,8 +111,8 @@ def page_report_ranking(start_date, end_date):
         FROM expert_article_mentions eam
         JOIN tickers t ON t.id = eam.ticker_id
         JOIN expert_articles ea ON ea.id = eam.article_id
-        {_RPT_JOIN}
-        WHERE ea.published_date BETWEEN %s AND %s AND {_RPT_FILTER}
+        JOIN expert_sources es ON es.id = ea.source_id
+        WHERE ea.published_date BETWEEN %s AND %s AND es.source_type = 'report'
         GROUP BY t.symbol, t.name
         ORDER BY "⭐ 가중 점수" DESC
     """, (start_date, end_date))
@@ -137,18 +136,18 @@ def page_report_list(start_date, end_date):
     with col1:
         rpt_search = st.text_input("🔎 제목 검색", placeholder="종목명 또는 키워드", key="rpt_search")
     with col2:
-        firms = run_query(f"""
+        firms = run_query("""
             SELECT DISTINCT ea.securities_firm FROM expert_articles ea
-            {_RPT_JOIN}
+            JOIN expert_sources es ON es.id = ea.source_id
             WHERE ea.securities_firm IS NOT NULL AND ea.published_date BETWEEN %s AND %s
-              AND {_RPT_FILTER}
+              AND es.source_type = 'report'
             ORDER BY ea.securities_firm
         """, (start_date, end_date))
         firm_list = ["전체"] + firms["securities_firm"].tolist()
         selected_firm = st.selectbox("🏢 증권사", firm_list, key="rpt_firm")
 
     # 쿼리 조건
-    conditions = [f"ea.published_date BETWEEN %s AND %s", _RPT_FILTER]
+    conditions = ["ea.published_date BETWEEN %s AND %s", "es.source_type = 'report'"]
     params = [start_date, end_date]
 
     if rpt_search:
@@ -161,7 +160,9 @@ def page_report_list(start_date, end_date):
     where = " AND ".join(conditions)
 
     count_df = run_query(f"""
-        SELECT COUNT(*) as cnt FROM expert_articles ea {_RPT_JOIN} WHERE {where}
+        SELECT COUNT(*) as cnt FROM expert_articles ea
+        JOIN expert_sources es ON es.id = ea.source_id
+        WHERE {where}
     """, params)
     total = int(count_df["cnt"].iloc[0]) if len(count_df) > 0 else 0
 
@@ -176,7 +177,7 @@ def page_report_list(start_date, end_date):
                t.name as "종목",
                ea.source_url as "링크"
         FROM expert_articles ea
-        {_RPT_JOIN}
+        JOIN expert_sources es ON es.id = ea.source_id
         LEFT JOIN expert_article_mentions eam ON eam.article_id = ea.id
         LEFT JOIN tickers t ON t.id = eam.ticker_id
         WHERE {where}
