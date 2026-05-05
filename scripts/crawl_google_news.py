@@ -181,25 +181,25 @@ def extract_tickers_for_articles(cur) -> int:
     total_mentions = 0
     for article_id, title in unanalyzed:
         found_tickers = set()
-        remaining = title
+        remaining = title.upper()  # 대소문자 무시 매칭
 
         for keyword in sorted_keywords:
             if keyword in remaining:
-                ticker_id, symbol = ticker_map[keyword]
-                if ticker_id not in found_tickers:
-                    found_tickers.add(ticker_id)
-                    sentiment = analyze_sentiment(title)
-                    try:
-                        cur.execute("""
-                            INSERT INTO expert_article_mentions
-                                (article_id, ticker_id, sentiment)
-                            VALUES (%s, %s, %s)
-                            ON CONFLICT (article_id, ticker_id) DO NOTHING
-                        """, (article_id, ticker_id, sentiment))
-                        if cur.rowcount > 0:
-                            total_mentions += 1
-                    except Exception:
-                        pass
+                for ticker_id, symbol in ticker_map[keyword]:
+                    if ticker_id not in found_tickers:
+                        found_tickers.add(ticker_id)
+                        sentiment = analyze_sentiment(title)
+                        try:
+                            cur.execute("""
+                                INSERT INTO expert_article_mentions
+                                    (article_id, ticker_id, sentiment)
+                                VALUES (%s, %s, %s)
+                                ON CONFLICT (article_id, ticker_id) DO NOTHING
+                            """, (article_id, ticker_id, sentiment))
+                            if cur.rowcount > 0:
+                                total_mentions += 1
+                        except Exception:
+                            pass
                 remaining = remaining.replace(keyword, "", 1)
 
     return total_mentions
