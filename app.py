@@ -83,18 +83,7 @@ date_range = run_query("""
 """)
 min_date = date_range["min_d"].iloc[0]
 max_date = date_range["max_d"].iloc[0]
-
-selected_range = st.sidebar.date_input(
-    "📅 날짜 범위",
-    value=(min_date, max_date),
-    min_value=min_date,
-    max_value=max_date,
-)
-
-if len(selected_range) == 2:
-    start_date, end_date = selected_range
-else:
-    start_date, end_date = min_date, max_date
+start_date, end_date = min_date, max_date
 
 # ─── 메뉴 섹션 정의 ──────────────────────────────────
 COMMUNITY_PAGES = ["📈 커뮤니티 개요", "📊 언급량 랭킹", "🚀 급상승 랭킹", "📋 게시글 목록"]
@@ -165,9 +154,6 @@ st.sidebar.radio(
     on_change=_make_handler("_radio_combined", ["_radio_community", "_radio_expert", "_radio_news"]),
     label_visibility="collapsed",
 )
-
-st.sidebar.markdown("---")
-st.sidebar.caption(f"데이터 범위: {min_date} ~ {max_date}")
 
 # ─── 페이지 라우팅 ───────────────────────────────────
 PAGE_MAP = {
