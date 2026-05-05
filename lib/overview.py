@@ -143,11 +143,15 @@ def page_ticker_search(start_date, end_date):
         "디즈니": "DIS", "보잉": "BA", "코스트코": "COST",
     }
 
-    # 종목 목록 가져오기 (언급된 적 있는 것만)
+    # 종목 목록 가져오기 (3채널 중 하나라도 언급된 것)
     ticker_list = run_query("""
         SELECT DISTINCT t.id, t.symbol, t.name, t.market
         FROM tickers t
-        JOIN post_mentions pm ON pm.ticker_id = t.id
+        WHERE t.id IN (
+            SELECT pm.ticker_id FROM post_mentions pm
+            UNION
+            SELECT eam.ticker_id FROM expert_article_mentions eam
+        )
         ORDER BY t.name
     """)
 
