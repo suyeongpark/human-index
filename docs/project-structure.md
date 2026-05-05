@@ -88,14 +88,7 @@ human-index/
 │   ├── daily_worker.py                 # 커뮤니티 통합 파이프라인 (크롤링→추출→감성)
 │   ├── crawl_hankyung.py               # 한경 컨센서스 크롤러
 │   ├── crawl_google_news.py            # Google News RSS 크롤러
-│   ├── extract_tickers.py              # 종목 추출 & 감성 분석 (독립 실행)
-│   ├── import_tickers.py               # KRX/US 종목 마스터 임포트
-│   ├── crawl_mlbpark.py                # MLBPark 단독 크롤러
-│   ├── crawl_mlbpark_bulk.py           # MLBPark 벌크 초기 수집
-│   ├── backfill_communities.py         # 커뮤니티 데이터 백필
-│   ├── backfill_news_mentions.py       # 뉴스 멘션 백필
-│   ├── fix_clien_dates.py              # 클리앙 날짜 보정 (일회성)
-│   └── recrawl_bulk.py                 # 벌크 재수집 (일회성)
+│   └── import_tickers.py               # KRX/US 종목 마스터 임포트
 │
 ├── .github/workflows/                  # GitHub Actions (리포트/뉴스만)
 │   ├── crawl-hankyung.yml              # 평일 18:30 (KST)
