@@ -114,6 +114,39 @@ def page_report_ranking(start_date, end_date):
         st.info("데이터가 없습니다.")
 
 
+def page_mention_ranking(start_date, end_date):
+    """📊 기사 언급량 랭킹"""
+    st.title("📊 기사 언급량 랭킹")
+
+    from lib.shared import SCORE_WEIGHT_POSITIVE, SCORE_WEIGHT_NEGATIVE, SCORE_WEIGHT_NEUTRAL
+
+    ranking = run_query("""
+        SELECT t.symbol as "심볼", t.name as "종목명", t.market as "시장",
+               COUNT(*) as "총 언급",
+               COUNT(*) FILTER (WHERE eam.sentiment = 1) as "👍 긍정",
+               COUNT(*) FILTER (WHERE eam.sentiment = -1) as "👎 부정",
+               COUNT(*) FILTER (WHERE eam.sentiment = 0) as "➖ 중립",
+               ROUND(100.0 * COUNT(*) FILTER (WHERE eam.sentiment = 1) / NULLIF(COUNT(*), 0), 1) as "📊 긍정률(%%)",
+               ROUND(((AVG(eam.sentiment) + 1) * 50)::numeric, 1) as "🎯 감성 점수",
+               ROUND(
+                   %s * COUNT(*) FILTER (WHERE eam.sentiment = 1) +
+                   %s * COUNT(*) FILTER (WHERE eam.sentiment = -1) +
+                   %s * COUNT(*) FILTER (WHERE eam.sentiment = 0)
+               , 1) as "⭐ 가중 점수"
+        FROM expert_article_mentions eam
+        JOIN tickers t ON t.id = eam.ticker_id
+        JOIN expert_articles ea ON ea.id = eam.article_id
+        WHERE ea.published_date BETWEEN %s AND %s
+        GROUP BY t.symbol, t.name, t.market
+        ORDER BY "⭐ 가중 점수" DESC
+    """, (SCORE_WEIGHT_POSITIVE, SCORE_WEIGHT_NEGATIVE, SCORE_WEIGHT_NEUTRAL,
+          start_date, end_date))
+
+    if not ranking.empty:
+        paginated_dataframe(ranking, "pg_expert_mention_ranking")
+    else:
+        st.info("데이터가 없습니다.")
+
 def page_report_list(start_date, end_date):
     """📋 리포트 목록"""
     st.title("📋 리포트, 기사 목록")
