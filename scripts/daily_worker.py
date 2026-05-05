@@ -97,7 +97,7 @@ COMMUNITIES = [
 EXTRA_ALIASES = {
     # KRX 약칭 / 커뮤니티 약칭
     "삼전": "005930", "삼전우": "005935",
-    "하닉": "000660", "하이닉스": "000660",
+    "하닉": "000660", "하이닉스": "000660", "닉스": "000660",
     "LG엔솔": "373220",
     "한화에어": "012450",
     "에코프로": "247540",
@@ -143,6 +143,12 @@ EXTRA_ALIASES = {
     "니오": "NIO", "리비안": "RIVN", "리오토": "LI",
     "온세미": "ON", "마벨": "MRVL", "램리서치": "LRCX",
     "노스롭": "NOC", "레이시온": "RTX",
+}
+
+# 하나의 키워드 → 여러 종목 매핑 (커뮤니티 합성어)
+MULTI_ALIASES = {
+    "삼닉": ["005930", "000660"],  # 삼성전자 + SK하이닉스
+    "삼하": ["005930", "000660"],  # 삼성전자 + SK하이닉스
 }
 
 # 오매칭 방지: 너무 일반적이거나 짧은 단어는 제외
@@ -462,9 +468,9 @@ def analyze_sentiment(title: str) -> int:
 
 def build_ticker_map(cur) -> dict:
     """DB의 tickers 테이블 전체 + 수동 별칭으로 매칭 맵 구성
-    Returns: {keyword: (ticker_id, symbol)} - 긴 키워드 우선
+    Returns: {keyword: [(ticker_id, symbol), ...]} - 긴 키워드 우선
     """
-    ticker_map = {}  # keyword → (ticker_id, symbol)
+    ticker_map = {}  # keyword → [(ticker_id, symbol), ...]
 
     # 1) DB에서 모든 종목 로드
     cur.execute("SELECT id, symbol, name, market FROM tickers WHERE is_active = TRUE")
@@ -477,17 +483,23 @@ def build_ticker_map(cur) -> dict:
         # KRX 종목: name으로 매칭 (예: "미래에셋증권", "삼성전자")
         if market in ("KOSPI", "KOSDAQ"):
             if name and len(name) >= 2 and name not in SKIP_NAMES:
-                ticker_map[name] = (ticker_id, symbol)
+                ticker_map[name] = [(ticker_id, symbol)]
 
         # US 종목: 3글자 이상 심볼만 (1~2글자는 오매칭 위험)
         elif market in ("US", "NASDAQ", "NYSE"):
             if len(symbol) >= 3 and symbol not in SKIP_NAMES:
-                ticker_map[symbol] = (ticker_id, symbol)
+                ticker_map[symbol] = [(ticker_id, symbol)]
 
-    # 2) 수동 한글 별칭 추가 (DB에 없는 약칭들)
+    # 2) 수동 한글 별칭 추가 (1:1)
     for alias, symbol in EXTRA_ALIASES.items():
         if symbol in symbol_to_id and alias not in SKIP_NAMES:
-            ticker_map[alias] = (symbol_to_id[symbol], symbol)
+            ticker_map[alias] = [(symbol_to_id[symbol], symbol)]
+
+    # 3) 복수 종목 별칭 추가 (1:N)
+    for alias, symbols in MULTI_ALIASES.items():
+        pairs = [(symbol_to_id[s], s) for s in symbols if s in symbol_to_id]
+        if pairs:
+            ticker_map[alias] = pairs
 
     log.info(f"  종목 매칭 맵: {len(ticker_map)}개 키워드 로드")
     return ticker_map
@@ -524,23 +536,23 @@ def extract_tickers_for_new_posts(cur) -> int:
 
         for keyword in sorted_keywords:
             if keyword in remaining:
-                ticker_id, symbol = ticker_map[keyword]
-                if ticker_id not in found_tickers:
-                    found_tickers.add(ticker_id)
-                    sentiment = analyze_sentiment(title)
-                    try:
-                        cur.execute(
-                            """
-                            INSERT INTO post_mentions (post_id, ticker_id, sentiment)
-                            VALUES (%s, %s, %s)
-                            ON CONFLICT (post_id, ticker_id) DO NOTHING
-                            """,
-                            (post_id, ticker_id, sentiment),
-                        )
-                        if cur.rowcount > 0:
-                            total_mentions += 1
-                    except Exception:
-                        pass
+                for ticker_id, symbol in ticker_map[keyword]:
+                    if ticker_id not in found_tickers:
+                        found_tickers.add(ticker_id)
+                        sentiment = analyze_sentiment(title)
+                        try:
+                            cur.execute(
+                                """
+                                INSERT INTO post_mentions (post_id, ticker_id, sentiment)
+                                VALUES (%s, %s, %s)
+                                ON CONFLICT (post_id, ticker_id) DO NOTHING
+                                """,
+                                (post_id, ticker_id, sentiment),
+                            )
+                            if cur.rowcount > 0:
+                                total_mentions += 1
+                        except Exception:
+                            pass
                 remaining = remaining.replace(keyword, "", 1)
 
     return total_mentions
