@@ -113,9 +113,8 @@ def page_surge_ranking(start_date, end_date):
     """🚀 급상승 랭킹"""
     st.title("🚀 급상승 종목 랭킹")
 
-    PERIOD_OPTIONS = {"3일간": 3, "주간 (7일)": 7, "월간 (30일)": 30}
-    period_label = st.selectbox("📅 비교 기간", list(PERIOD_OPTIONS.keys()))
-    days = PERIOD_OPTIONS[period_label]
+    period = period_tabs("surge_period")
+    days = PERIOD_DAYS[period]
 
     recent_end = end_date
     recent_start = end_date - timedelta(days=days - 1)
@@ -124,10 +123,7 @@ def page_surge_ranking(start_date, end_date):
 
     st.caption(f"최근: {recent_start} ~ {recent_end}  vs  이전: {prev_start} ~ {prev_end}")
 
-    recent_label = f"최근 {days}일"
-    prev_label = f"이전 {days}일"
-
-    surge = run_query(f"""
+    surge = run_query("""
         WITH recent AS (
             SELECT pm.ticker_id, COUNT(*) as cnt
             FROM post_mentions pm JOIN posts p ON p.id = pm.post_id
@@ -141,8 +137,8 @@ def page_surge_ranking(start_date, end_date):
             GROUP BY pm.ticker_id
         )
         SELECT t.name as "종목",
-               COALESCE(r.cnt, 0) as "{recent_label}",
-               COALESCE(p.cnt, 0) as "{prev_label}",
+               COALESCE(r.cnt, 0) as "최근",
+               COALESCE(p.cnt, 0) as "이전",
                COALESCE(r.cnt, 0) - COALESCE(p.cnt, 0) as "변화량",
                CASE WHEN COALESCE(p.cnt, 0) > 0
                     THEN ROUND(100.0 * (COALESCE(r.cnt,0) - p.cnt) / p.cnt, 1)
