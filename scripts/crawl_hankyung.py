@@ -45,25 +45,45 @@ HEADERS = {
 DELAY = 1.0  # 서버 부하 방지 (robots.txt Disallow: / 이므로 보수적으로)
 PAGENUM = 80  # 한 페이지당 표시 건수 (20, 50, 80 지원)
 
+# ─── SQL 쿼리 ──────────────────────────────────────────
+SQL_FIND_SOURCE = "SELECT id FROM expert_sources WHERE name = %s"
+SQL_INSERT_SOURCE = """
+    INSERT INTO expert_sources (name, source_type, base_url, is_active)
+    VALUES (%s, %s, %s, TRUE)
+    RETURNING id
+"""
+SQL_INSERT_ARTICLE = """
+    INSERT INTO expert_articles
+        (source_id, title, author, securities_firm, published_date, source_url)
+    VALUES (%s, %s, %s, %s, %s, %s)
+    ON CONFLICT (source_url) WHERE source_url IS NOT NULL
+    DO NOTHING
+    RETURNING id
+"""
+SQL_FIND_TICKER = "SELECT id FROM tickers WHERE symbol = %s"
+SQL_INSERT_ARTICLE_MENTION = """
+    INSERT INTO expert_article_mentions
+        (article_id, ticker_id, sentiment, target_price, opinion)
+    VALUES (%s, %s, %s, %s, %s)
+    ON CONFLICT (article_id, ticker_id) DO NOTHING
+"""
+SQL_COUNT_ARTICLES = "SELECT COUNT(*) FROM expert_articles WHERE source_id = %s"
+SQL_COUNT_MATCHED_TICKERS = """
+    SELECT COUNT(DISTINCT eam.ticker_id)
+    FROM expert_article_mentions eam
+    JOIN expert_articles ea ON ea.id = eam.article_id
+    WHERE ea.source_id = %s
+"""
+
 
 def ensure_source(cur) -> int:
     """expert_sources 테이블에 한경 컨센서스가 없으면 추가하고 id를 반환"""
-    cur.execute(
-        "SELECT id FROM expert_sources WHERE name = %s",
-        (SOURCE_NAME,),
-    )
+    cur.execute(SQL_FIND_SOURCE, (SOURCE_NAME,))
     row = cur.fetchone()
     if row:
         return row[0]
 
-    cur.execute(
-        """
-        INSERT INTO expert_sources (name, source_type, base_url, is_active)
-        VALUES (%s, %s, %s, TRUE)
-        RETURNING id
-        """,
-        (SOURCE_NAME, SOURCE_TYPE, BASE_URL),
-    )
+    cur.execute(SQL_INSERT_SOURCE, (SOURCE_NAME, SOURCE_TYPE, BASE_URL))
     return cur.fetchone()[0]
 
 
@@ -217,14 +237,7 @@ def insert_articles(cur, source_id: int, articles: list[dict]) -> tuple[int, int
     for art in articles:
         try:
             cur.execute(
-                """
-                INSERT INTO expert_articles
-                    (source_id, title, author, securities_firm, published_date, source_url)
-                VALUES (%s, %s, %s, %s, %s, %s)
-                ON CONFLICT (source_url) WHERE source_url IS NOT NULL
-                DO NOTHING
-                RETURNING id
-                """,
+                SQL_INSERT_ARTICLE,
                 (
                     source_id,
                     art["title"],
@@ -241,21 +254,13 @@ def insert_articles(cur, source_id: int, articles: list[dict]) -> tuple[int, int
 
                 # 종목코드가 있으면 expert_article_mentions에도 삽입
                 if art["ticker_symbol"]:
-                    cur.execute(
-                        "SELECT id FROM tickers WHERE symbol = %s",
-                        (art["ticker_symbol"],),
-                    )
+                    cur.execute(SQL_FIND_TICKER, (art["ticker_symbol"],))
                     ticker_row = cur.fetchone()
                     if ticker_row:
                         # sentiment: 투자의견 기반으로 간단 매핑
                         sentiment = map_opinion_to_sentiment(art["opinion"])
                         cur.execute(
-                            """
-                            INSERT INTO expert_article_mentions
-                                (article_id, ticker_id, sentiment, target_price, opinion)
-                            VALUES (%s, %s, %s, %s, %s)
-                            ON CONFLICT (article_id, ticker_id) DO NOTHING
-                            """,
+                            SQL_INSERT_ARTICLE_MENTION,
                             (
                                 article_id,
                                 ticker_row[0],
@@ -350,22 +355,11 @@ def main():
 
         # 검증 쿼리
         with conn.cursor() as cur:
-            cur.execute(
-                "SELECT COUNT(*) FROM expert_articles WHERE source_id = %s",
-                (source_id,),
-            )
+            cur.execute(SQL_COUNT_ARTICLES, (source_id,))
             total = cur.fetchone()[0]
             log.info(f"📊 DB 현황: '{SOURCE_NAME}' 리포트 총 {total}건")
 
-            cur.execute(
-                """
-                SELECT COUNT(DISTINCT eam.ticker_id)
-                FROM expert_article_mentions eam
-                JOIN expert_articles ea ON ea.id = eam.article_id
-                WHERE ea.source_id = %s
-                """,
-                (source_id,),
-            )
+            cur.execute(SQL_COUNT_MATCHED_TICKERS, (source_id,))
             matched = cur.fetchone()[0]
             log.info(f"🎯 종목 매칭: {matched}개 종목")
 

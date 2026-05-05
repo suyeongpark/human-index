@@ -44,18 +44,76 @@ from data_loader import (
 )
 
 
+# ─── SQL 쿼리 ──────────────────────────────────────────
+
+SQL_FIND_COMMUNITY = "SELECT id FROM communities WHERE name = %s"
+SQL_INSERT_COMMUNITY = "INSERT INTO communities (name, base_url, category) VALUES (%s, %s, %s) RETURNING id"
+SQL_KNOWN_URLS = "SELECT source_url FROM posts WHERE community_id = %s ORDER BY id DESC LIMIT 1000"
+SQL_INSERT_POST = """
+    INSERT INTO posts (community_id, title, author, post_date, source_url)
+    VALUES (%s, %s, %s, %s, %s)
+    ON CONFLICT (source_url) WHERE source_url IS NOT NULL DO NOTHING
+"""
+SQL_LOAD_TICKERS = "SELECT id, symbol, name, market FROM tickers WHERE is_active = TRUE"
+SQL_UNANALYZED_POSTS = """
+    SELECT p.id, p.title
+    FROM posts p
+    LEFT JOIN post_mentions pm ON pm.post_id = p.id
+    WHERE pm.id IS NULL
+    ORDER BY p.id
+"""
+SQL_INSERT_MENTION = """
+    INSERT INTO post_mentions (post_id, ticker_id, sentiment)
+    VALUES (%s, %s, %s)
+    ON CONFLICT (post_id, ticker_id) DO NOTHING
+"""
+SQL_DELETE_DAILY_STATS = "DELETE FROM mention_daily_stats WHERE stat_date = %s"
+SQL_INSERT_COMMUNITY_STATS = """
+    INSERT INTO mention_daily_stats
+        (ticker_id, community_id, stat_date, mention_count,
+         positive_count, negative_count, neutral_count)
+    SELECT
+        pm.ticker_id, p.community_id, DATE(p.post_date),
+        COUNT(*),
+        COUNT(*) FILTER (WHERE pm.sentiment = 1),
+        COUNT(*) FILTER (WHERE pm.sentiment = -1),
+        COUNT(*) FILTER (WHERE pm.sentiment = 0)
+    FROM post_mentions pm
+    JOIN posts p ON p.id = pm.post_id
+    WHERE DATE(p.post_date) = %s
+    GROUP BY pm.ticker_id, p.community_id, DATE(p.post_date)
+"""
+SQL_INSERT_TOTAL_STATS = """
+    INSERT INTO mention_daily_stats
+        (ticker_id, community_id, stat_date, mention_count,
+         positive_count, negative_count, neutral_count)
+    SELECT
+        pm.ticker_id, NULL, DATE(p.post_date),
+        COUNT(*),
+        COUNT(*) FILTER (WHERE pm.sentiment = 1),
+        COUNT(*) FILTER (WHERE pm.sentiment = -1),
+        COUNT(*) FILTER (WHERE pm.sentiment = 0)
+    FROM post_mentions pm
+    JOIN posts p ON p.id = pm.post_id
+    WHERE DATE(p.post_date) = %s
+    GROUP BY pm.ticker_id, DATE(p.post_date)
+"""
+SQL_COUNT_POSTS = "SELECT COUNT(*) FROM posts"
+SQL_COUNT_MENTIONS = "SELECT COUNT(*) FROM post_mentions"
+
+
 # ═══════════════════════════════════════════════════════
 # STEP 1: 크롤링
 # ═══════════════════════════════════════════════════════
 
 def ensure_community(cur, community: dict) -> int:
     """커뮤니티 존재 확인/생성"""
-    cur.execute("SELECT id FROM communities WHERE name = %s", (community["name"],))
+    cur.execute(SQL_FIND_COMMUNITY, (community["name"],))
     row = cur.fetchone()
     if row:
         return row[0]
     cur.execute(
-        "INSERT INTO communities (name, base_url, category) VALUES (%s, %s, %s) RETURNING id",
+        SQL_INSERT_COMMUNITY,
         (community["name"], community["base_url"], community["category"]),
     )
     return cur.fetchone()[0]
@@ -267,10 +325,7 @@ def crawl_community(cur, community: dict) -> int:
         return 0
 
     # 최근 수집된 URL을 미리 로드하여 정확한 중복 판정
-    cur.execute(
-        "SELECT source_url FROM posts WHERE community_id = %s ORDER BY id DESC LIMIT 1000",
-        (community_id,),
-    )
+    cur.execute(SQL_KNOWN_URLS, (community_id,))
     known_urls = {row[0] for row in cur.fetchall() if row[0]}
 
     for page in range(community["max_pages"]):
@@ -291,11 +346,7 @@ def crawl_community(cur, community: dict) -> int:
         inserted = 0
         for post in new_posts:
             cur.execute(
-                """
-                INSERT INTO posts (community_id, title, author, post_date, source_url)
-                VALUES (%s, %s, %s, %s, %s)
-                ON CONFLICT (source_url) WHERE source_url IS NOT NULL DO NOTHING
-                """,
+                SQL_INSERT_POST,
                 (community_id, post["title"], post["author"],
                  post["post_date"], post["source_url"]),
             )
@@ -349,7 +400,7 @@ def build_ticker_map(cur) -> dict:
     ticker_map = {}  # keyword_upper → [(ticker_id, symbol), ...]
 
     # 1) DB에서 모든 종목 로드
-    cur.execute("SELECT id, symbol, name, market FROM tickers WHERE is_active = TRUE")
+    cur.execute(SQL_LOAD_TICKERS)
     all_tickers = cur.fetchall()
     symbol_to_id = {}  # symbol → ticker_id
 
@@ -392,13 +443,7 @@ def extract_tickers_for_new_posts(cur) -> int:
     sorted_keywords = sorted(ticker_map.keys(), key=len, reverse=True)
 
     # 아직 분석하지 않은 게시글 조회
-    cur.execute("""
-        SELECT p.id, p.title
-        FROM posts p
-        LEFT JOIN post_mentions pm ON pm.post_id = p.id
-        WHERE pm.id IS NULL
-        ORDER BY p.id
-    """)
+    cur.execute(SQL_UNANALYZED_POSTS)
     unanalyzed = cur.fetchall()
 
     if not unanalyzed:
@@ -418,11 +463,7 @@ def extract_tickers_for_new_posts(cur) -> int:
                         sentiment = analyze_sentiment(title)
                         try:
                             cur.execute(
-                                """
-                                INSERT INTO post_mentions (post_id, ticker_id, sentiment)
-                                VALUES (%s, %s, %s)
-                                ON CONFLICT (post_id, ticker_id) DO NOTHING
-                                """,
+                                SQL_INSERT_MENTION,
                                 (post_id, ticker_id, sentiment),
                             )
                             if cur.rowcount > 0:
@@ -444,42 +485,14 @@ def update_daily_stats(cur, target_date: date = None) -> int:
         target_date = date.today()
 
     # 해당 날짜 기존 통계 삭제
-    cur.execute("DELETE FROM mention_daily_stats WHERE stat_date = %s", (target_date,))
+    cur.execute(SQL_DELETE_DAILY_STATS, (target_date,))
 
     # 커뮤니티별 통계
-    cur.execute("""
-        INSERT INTO mention_daily_stats
-            (ticker_id, community_id, stat_date, mention_count,
-             positive_count, negative_count, neutral_count)
-        SELECT
-            pm.ticker_id, p.community_id, DATE(p.post_date),
-            COUNT(*),
-            COUNT(*) FILTER (WHERE pm.sentiment = 1),
-            COUNT(*) FILTER (WHERE pm.sentiment = -1),
-            COUNT(*) FILTER (WHERE pm.sentiment = 0)
-        FROM post_mentions pm
-        JOIN posts p ON p.id = pm.post_id
-        WHERE DATE(p.post_date) = %s
-        GROUP BY pm.ticker_id, p.community_id, DATE(p.post_date)
-    """, (target_date,))
+    cur.execute(SQL_INSERT_COMMUNITY_STATS, (target_date,))
     community_stats = cur.rowcount
 
     # 전체 합산 통계 (community_id = NULL)
-    cur.execute("""
-        INSERT INTO mention_daily_stats
-            (ticker_id, community_id, stat_date, mention_count,
-             positive_count, negative_count, neutral_count)
-        SELECT
-            pm.ticker_id, NULL, DATE(p.post_date),
-            COUNT(*),
-            COUNT(*) FILTER (WHERE pm.sentiment = 1),
-            COUNT(*) FILTER (WHERE pm.sentiment = -1),
-            COUNT(*) FILTER (WHERE pm.sentiment = 0)
-        FROM post_mentions pm
-        JOIN posts p ON p.id = pm.post_id
-        WHERE DATE(p.post_date) = %s
-        GROUP BY pm.ticker_id, DATE(p.post_date)
-    """, (target_date,))
+    cur.execute(SQL_INSERT_TOTAL_STATS, (target_date,))
 
     return community_stats + cur.rowcount
 
@@ -539,9 +552,9 @@ def run_pipeline(community_filter=None):
         # 결과 요약
         elapsed = (datetime.now() - start_time).total_seconds()
         with conn.cursor() as cur:
-            cur.execute("SELECT COUNT(*) FROM posts")
+            cur.execute(SQL_COUNT_POSTS)
             total_posts = cur.fetchone()[0]
-            cur.execute("SELECT COUNT(*) FROM post_mentions")
+            cur.execute(SQL_COUNT_MENTIONS)
             total_mentions = cur.fetchone()[0]
 
         log.info(f"\n{'=' * 60}")

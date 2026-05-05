@@ -107,25 +107,46 @@ def fetch_rss_articles(url: str) -> list[dict]:
     return articles
 
 
+# ─── SQL 쿼리 ──────────────────────────────────────────
+SQL_FIND_SOURCE = "SELECT id FROM expert_sources WHERE name = %s"
+SQL_INSERT_SOURCE = """
+    INSERT INTO expert_sources (name, source_type, base_url)
+    VALUES (%s, 'article', 'https://news.google.com')
+    RETURNING id
+"""
+SQL_INSERT_ARTICLE = """
+    INSERT INTO expert_articles (source_id, title, author, securities_firm, published_date, source_url)
+    VALUES (%s, %s, %s, %s, %s, %s)
+    ON CONFLICT (source_url) WHERE source_url IS NOT NULL DO NOTHING
+"""
+SQL_UNANALYZED_ARTICLES = """
+    SELECT ea.id, ea.title
+    FROM expert_articles ea
+    JOIN expert_sources es ON es.id = ea.source_id
+    LEFT JOIN expert_article_mentions eam ON eam.article_id = ea.id
+    WHERE es.source_type = 'article' AND eam.id IS NULL
+    ORDER BY ea.id
+"""
+SQL_INSERT_ARTICLE_MENTION = """
+    INSERT INTO expert_article_mentions
+        (article_id, ticker_id, sentiment)
+    VALUES (%s, %s, %s)
+    ON CONFLICT (article_id, ticker_id) DO NOTHING
+"""
+
+
 # ═══════════════════════════════════════════════════════
 # DB 저장
 # ═══════════════════════════════════════════════════════
 
 def ensure_source(cur, name: str) -> int:
     """expert_sources에 Google News 소스 등록 (없으면 생성)"""
-    cur.execute("SELECT id FROM expert_sources WHERE name = %s", (name,))
+    cur.execute(SQL_FIND_SOURCE, (name,))
     row = cur.fetchone()
     if row:
         return row[0]
 
-    cur.execute(
-        """
-        INSERT INTO expert_sources (name, source_type, base_url)
-        VALUES (%s, 'article', 'https://news.google.com')
-        RETURNING id
-        """,
-        (name,),
-    )
+    cur.execute(SQL_INSERT_SOURCE, (name,))
     return cur.fetchone()[0]
 
 
@@ -134,11 +155,7 @@ def save_articles(cur, source_id: int, articles: list[dict]) -> int:
     inserted = 0
     for art in articles:
         cur.execute(
-            """
-            INSERT INTO expert_articles (source_id, title, author, securities_firm, published_date, source_url)
-            VALUES (%s, %s, %s, %s, %s, %s)
-            ON CONFLICT (source_url) WHERE source_url IS NOT NULL DO NOTHING
-            """,
+            SQL_INSERT_ARTICLE,
             (
                 source_id,
                 art["title"],
@@ -164,14 +181,7 @@ def extract_tickers_for_articles(cur) -> int:
     ticker_map = build_ticker_map(cur)
     sorted_keywords = sorted(ticker_map.keys(), key=len, reverse=True)
 
-    cur.execute("""
-        SELECT ea.id, ea.title
-        FROM expert_articles ea
-        JOIN expert_sources es ON es.id = ea.source_id
-        LEFT JOIN expert_article_mentions eam ON eam.article_id = ea.id
-        WHERE es.source_type = 'article' AND eam.id IS NULL
-        ORDER BY ea.id
-    """)
+    cur.execute(SQL_UNANALYZED_ARTICLES)
     unanalyzed = cur.fetchall()
 
     if not unanalyzed:
@@ -190,12 +200,10 @@ def extract_tickers_for_articles(cur) -> int:
                         found_tickers.add(ticker_id)
                         sentiment = analyze_sentiment(title)
                         try:
-                            cur.execute("""
-                                INSERT INTO expert_article_mentions
-                                    (article_id, ticker_id, sentiment)
-                                VALUES (%s, %s, %s)
-                                ON CONFLICT (article_id, ticker_id) DO NOTHING
-                            """, (article_id, ticker_id, sentiment))
+                            cur.execute(
+                                SQL_INSERT_ARTICLE_MENTION,
+                                (article_id, ticker_id, sentiment),
+                            )
                             if cur.rowcount > 0:
                                 total_mentions += 1
                         except Exception:
