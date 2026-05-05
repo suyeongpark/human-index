@@ -4,6 +4,7 @@ Human Index Dashboard
 """
 
 import streamlit as st
+import streamlit.components.v1 as components
 
 from lib.shared import run_query
 from lib import community, report, news, overview
@@ -15,6 +16,17 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded",
 )
+
+# ─── Google Analytics (GA4) ───────────────────────────
+components.html("""
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-WW9WTSV3C0"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-WW9WTSV3C0');
+</script>
+""", height=0)
 
 # ─── 스타일 ──────────────────────────────────────────
 st.markdown("""
