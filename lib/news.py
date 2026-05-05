@@ -145,8 +145,8 @@ def page_surge_ranking(start_date, end_date):
 
 
 def page_mention_ranking(start_date, end_date):
-    """📊 기사 언급량 랭킹"""
-    st.title("📊 기사 언급량 랭킹")
+    """📊 뉴스 언급량 랭킹"""
+    st.title("📊 뉴스 언급량 랭킹")
 
     ranking = run_query("""
         SELECT t.symbol as "심볼", t.name as "종목명", t.market as "시장",
@@ -178,8 +178,8 @@ def page_mention_ranking(start_date, end_date):
 
 
 def page_article_list(start_date, end_date):
-    """📋 기사 목록"""
-    st.title("📋 기사 목록")
+    """📋 뉴스 목록"""
+    st.title("📋 뉴스 목록")
 
     PAGE_SIZE = 25
 

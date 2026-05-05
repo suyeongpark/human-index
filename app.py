@@ -88,7 +88,7 @@ start_date, end_date = min_date, max_date
 # ─── 메뉴 섹션 정의 ──────────────────────────────────
 COMMUNITY_PAGES = ["📈 커뮤니티 개요", "📊 언급량 랭킹", "🚀 급상승 랭킹", "📋 게시글 목록"]
 EXPERT_PAGES = ["📈 전문가 개요", "📊 리포트 랭킹", "🚀 전문가 급상승", "📋 리포트 목록"]
-NEWS_PAGES = ["📈 뉴스 개요", "📊 기사 언급량 랭킹", "🚀 뉴스 급상승", "📋 기사 목록"]
+NEWS_PAGES = ["📈 뉴스 개요", "📊 뉴스 언급량 랭킹", "🚀 뉴스 급상승", "📋 뉴스 목록"]
 COMBINED_PAGES = ["🏠 종합 대시보드", "🔍 종목 검색"]
 
 # navigate_to → rerun 후, radio 생성 전에 위젯 키 동기화
@@ -169,9 +169,9 @@ PAGE_MAP = {
     "📋 리포트 목록": expert.page_report_list,
     # 뉴스
     "📈 뉴스 개요": news.page_overview,
-    "📊 기사 언급량 랭킹": news.page_mention_ranking,
+    "📊 뉴스 언급량 랭킹": news.page_mention_ranking,
     "🚀 뉴스 급상승": news.page_surge_ranking,
-    "📋 기사 목록": news.page_article_list,
+    "📋 뉴스 목록": news.page_article_list,
     # 종합
     "🏠 종합 대시보드": combined.page_dashboard,
     "🔍 종목 검색": combined.page_ticker_search,
