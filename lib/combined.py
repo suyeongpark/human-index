@@ -202,40 +202,22 @@ def page_ticker_search(start_date, end_date):
         return
 
     selected = st.selectbox("종목 선택", list(options.keys()))
-    ticker_id = options[selected]
+    ticker_id = int(options[selected])
 
-    # 종목 기본 정보
-    ticker_info = run_query("""
-        SELECT t.symbol, t.name, t.market,
-               COUNT(*) as total_mentions,
-               COUNT(*) FILTER (WHERE pm.sentiment = 1) as positive,
-               COUNT(*) FILTER (WHERE pm.sentiment = -1) as negative,
-               COUNT(*) FILTER (WHERE pm.sentiment = 0) as neutral,
-               ROUND(100.0 * COUNT(*) FILTER (WHERE pm.sentiment = 1) / NULLIF(COUNT(*), 0), 1) as positive_rate,
-               ROUND(((AVG(pm.sentiment) + 1) * 50)::numeric, 1) as sentiment_score,
-               ROUND(
-                   2.0 * COUNT(*) FILTER (WHERE pm.sentiment = 1) +
-                   0.5 * COUNT(*) FILTER (WHERE pm.sentiment = -1) +
-                   1.0 * COUNT(*) FILTER (WHERE pm.sentiment = 0)
-               , 1) as weighted_score
-        FROM tickers t
-        JOIN post_mentions pm ON pm.ticker_id = t.id
-        JOIN posts p ON p.id = pm.post_id
-        WHERE t.id = %s AND p.post_date BETWEEN %s AND %s
-        GROUP BY t.symbol, t.name, t.market
-    """, (int(ticker_id), start_date, end_date))
-
-    if not ticker_info.empty:
-        info = ticker_info.iloc[0]
+    # 기간 선택
+    period = period_tabs("ticker_search_period")
+    from lib.shared import PERIOD_SQL
+    date_sel_post = PERIOD_SQL[period]["select"].format(date_col="p.post_date")
+    date_grp_post = PERIOD_SQL[period]["group"].format(date_col="p.post_date")
+    date_sel_ea = PERIOD_SQL[period]["select"].format(date_col="ea.published_date")
+    date_grp_ea = PERIOD_SQL[period]["group"].format(date_col="ea.published_date")
 
     st.markdown("---")
 
-    # ── 커뮤니티 ──
-    st.subheader("📢 커뮤니티")
-
-    # 일별 추이 차트
-    daily = run_query("""
-        SELECT p.post_date as "날짜",
+    # ── 커뮤니티 언급량 ──
+    st.subheader("📢 커뮤니티 언급량")
+    comm_trend = run_query(f"""
+        SELECT {date_sel_post} as "날짜",
                COUNT(*) as "전체",
                COUNT(*) FILTER (WHERE pm.sentiment = 1) as "긍정",
                COUNT(*) FILTER (WHERE pm.sentiment = -1) as "부정",
@@ -243,61 +225,101 @@ def page_ticker_search(start_date, end_date):
         FROM post_mentions pm
         JOIN posts p ON p.id = pm.post_id
         WHERE pm.ticker_id = %s AND p.post_date BETWEEN %s AND %s
-        GROUP BY p.post_date ORDER BY p.post_date
-    """, (int(ticker_id), start_date, end_date))
-
-    if not daily.empty:
-        st.line_chart(daily.set_index("날짜"))
-
-    if not ticker_info.empty:
-        r1c1, r1c2, r1c3, r1c4 = st.columns(4)
-        r1c1.metric("💬 총 언급", f"{info['total_mentions']}")
-        r1c2.metric("👍 긍정", f"{info['positive']}")
-        r1c3.metric("👎 부정", f"{info['negative']}")
-        r1c4.metric("➖ 중립", f"{info['neutral']}")
-
-        r2c1, r2c2, r2c3 = st.columns(3)
-        r2c1.metric("📊 긍정률", f"{info['positive_rate'] or 0}%")
-        r2c2.metric("🎯 감성 점수", f"{info['sentiment_score']}")
-        r2c3.metric("⭐ 가중 점수", f"{info['weighted_score']}")
+        GROUP BY {date_grp_post} ORDER BY 1
+    """, (ticker_id, start_date, end_date))
+    if not comm_trend.empty:
+        st.line_chart(comm_trend.set_index("날짜"))
+    else:
+        st.info("커뮤니티 언급 데이터가 없습니다.")
 
     st.markdown("---")
 
-    # ── 전문가 ──
-    st.subheader("🔬 전문가 리포트")
-    ticker_symbol = ticker_info.iloc[0]['symbol'] if not ticker_info.empty else None
-    if ticker_symbol:
-        expert_stats = run_query("""
-            SELECT COUNT(*) as report_cnt,
-                   COUNT(DISTINCT ea.securities_firm) as firm_cnt,
-                   COUNT(*) FILTER (WHERE eam.opinion ILIKE '%%buy%%' OR eam.opinion = '매수') as buy,
-                   COUNT(*) FILTER (WHERE eam.opinion ILIKE '%%hold%%' OR eam.opinion = '중립') as hold,
-                   COUNT(*) FILTER (WHERE eam.opinion ILIKE '%%sell%%' OR eam.opinion = '매도') as sell,
-                   ROUND(100.0 * COUNT(*) FILTER (WHERE eam.sentiment = 1) / NULLIF(COUNT(*), 0), 1) as positive_rate,
-                   ROUND(((AVG(eam.sentiment) + 1) * 50)::numeric, 1) as sentiment_score,
-                   ROUND(
-                       2.0 * COUNT(*) FILTER (WHERE eam.sentiment = 1) +
-                       0.5 * COUNT(*) FILTER (WHERE eam.sentiment = -1) +
-                       1.0 * COUNT(*) FILTER (WHERE eam.sentiment = 0)
-                   , 1) as weighted_score
-            FROM expert_article_mentions eam
-            JOIN tickers t ON t.id = eam.ticker_id
-            JOIN expert_articles ea ON ea.id = eam.article_id
-            WHERE t.symbol = %s AND ea.published_date BETWEEN %s AND %s
-        """, (ticker_symbol, start_date, end_date))
+    # ── 리포트 언급량 ──
+    st.subheader("🔬 리포트 언급량")
+    rpt_trend = run_query(f"""
+        SELECT {date_sel_ea} as "날짜",
+               COUNT(*) as "전체",
+               COUNT(*) FILTER (WHERE eam.sentiment = 1) as "긍정",
+               COUNT(*) FILTER (WHERE eam.sentiment = -1) as "부정",
+               COUNT(*) FILTER (WHERE eam.sentiment = 0) as "중립"
+        FROM expert_article_mentions eam
+        JOIN expert_articles ea ON ea.id = eam.article_id
+        JOIN expert_sources es ON es.id = ea.source_id
+        WHERE eam.ticker_id = %s AND ea.published_date BETWEEN %s AND %s AND es.source_type = 'report'
+        GROUP BY {date_grp_ea} ORDER BY 1
+    """, (ticker_id, start_date, end_date))
+    if not rpt_trend.empty:
+        st.line_chart(rpt_trend.set_index("날짜"))
+    else:
+        st.info("리포트 데이터가 없습니다.")
 
-        if not expert_stats.empty and expert_stats.iloc[0]['report_cnt'] > 0:
-            es = expert_stats.iloc[0]
-            r1c1, r1c2, r1c3, r1c4 = st.columns(4)
-            r1c1.metric("📄 리포트 수", f"{es['report_cnt']}")
-            r1c3.metric("📈 Buy", f"{es['buy']}")
-            r1c2.metric("➖ Hold", f"{es['hold']}")
-            r1c4.metric("📉 Sell", f"{es['sell']}")
+    st.markdown("---")
 
-            r2c1, r2c2, r2c3 = st.columns(3)
-            r2c1.metric("📊 긍정률", f"{es['positive_rate'] or 0}%")
-            r2c2.metric("🎯 감성 점수", f"{es['sentiment_score']}")
-            r2c3.metric("⭐ 가중 점수", f"{es['weighted_score']}")
-        else:
-            st.info("해당 기간에 전문가 리포트가 없습니다.")
+    # ── 뉴스 언급량 ──
+    st.subheader("📰 뉴스 언급량")
+    news_trend = run_query(f"""
+        SELECT {date_sel_ea} as "날짜",
+               COUNT(*) as "전체",
+               COUNT(*) FILTER (WHERE eam.sentiment = 1) as "긍정",
+               COUNT(*) FILTER (WHERE eam.sentiment = -1) as "부정",
+               COUNT(*) FILTER (WHERE eam.sentiment = 0) as "중립"
+        FROM expert_article_mentions eam
+        JOIN expert_articles ea ON ea.id = eam.article_id
+        JOIN expert_sources es ON es.id = ea.source_id
+        WHERE eam.ticker_id = %s AND ea.published_date BETWEEN %s AND %s AND es.source_type = 'article'
+        GROUP BY {date_grp_ea} ORDER BY 1
+    """, (ticker_id, start_date, end_date))
+    if not news_trend.empty:
+        st.line_chart(news_trend.set_index("날짜"))
+    else:
+        st.info("뉴스 데이터가 없습니다.")
 
+    st.markdown("---")
+
+    # ── 채널별 수치 테이블 ──
+    st.subheader("📊 채널별 수치 비교")
+    stats = run_query("""
+        SELECT '커뮤니티' as "채널",
+               COUNT(*) as "총 언급",
+               COUNT(*) FILTER (WHERE pm.sentiment = 1) as "👍 긍정",
+               COUNT(*) FILTER (WHERE pm.sentiment = -1) as "👎 부정",
+               COUNT(*) FILTER (WHERE pm.sentiment = 0) as "➖ 중립",
+               ROUND(100.0 * COUNT(*) FILTER (WHERE pm.sentiment = 1) / NULLIF(COUNT(*), 0), 1) as "긍정률(%%)",
+               ROUND(((AVG(pm.sentiment) + 1) * 50)::numeric, 1) as "감성 점수"
+        FROM post_mentions pm
+        JOIN posts p ON p.id = pm.post_id
+        WHERE pm.ticker_id = %s AND p.post_date BETWEEN %s AND %s
+
+        UNION ALL
+
+        SELECT '리포트',
+               COUNT(*),
+               COUNT(*) FILTER (WHERE eam.sentiment = 1),
+               COUNT(*) FILTER (WHERE eam.sentiment = -1),
+               COUNT(*) FILTER (WHERE eam.sentiment = 0),
+               ROUND(100.0 * COUNT(*) FILTER (WHERE eam.sentiment = 1) / NULLIF(COUNT(*), 0), 1),
+               ROUND(((AVG(eam.sentiment) + 1) * 50)::numeric, 1)
+        FROM expert_article_mentions eam
+        JOIN expert_articles ea ON ea.id = eam.article_id
+        JOIN expert_sources es ON es.id = ea.source_id
+        WHERE eam.ticker_id = %s AND ea.published_date BETWEEN %s AND %s AND es.source_type = 'report'
+
+        UNION ALL
+
+        SELECT '뉴스',
+               COUNT(*),
+               COUNT(*) FILTER (WHERE eam.sentiment = 1),
+               COUNT(*) FILTER (WHERE eam.sentiment = -1),
+               COUNT(*) FILTER (WHERE eam.sentiment = 0),
+               ROUND(100.0 * COUNT(*) FILTER (WHERE eam.sentiment = 1) / NULLIF(COUNT(*), 0), 1),
+               ROUND(((AVG(eam.sentiment) + 1) * 50)::numeric, 1)
+        FROM expert_article_mentions eam
+        JOIN expert_articles ea ON ea.id = eam.article_id
+        JOIN expert_sources es ON es.id = ea.source_id
+        WHERE eam.ticker_id = %s AND ea.published_date BETWEEN %s AND %s AND es.source_type = 'article'
+    """, (ticker_id, start_date, end_date,
+          ticker_id, start_date, end_date,
+          ticker_id, start_date, end_date))
+
+    if not stats.empty:
+        st.dataframe(stats, use_container_width=True, hide_index=True)
