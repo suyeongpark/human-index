@@ -209,7 +209,7 @@ def page_dashboard(start_date, end_date):
     period_start = max(start_date, end_date - timedelta(days=days))
 
     # KPI
-    kpi_all = run_query(SQL_KPI, (period_start, end_date) * 10)
+    kpi_all = run_query(SQL_KPI, (period_start, end_date) * 9)
 
     # 1행: 3개 커럼 (2span)
     c1, c2, c3 = st.columns(3)
