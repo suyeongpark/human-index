@@ -191,11 +191,13 @@ def page_ticker_search(start_date, end_date):
     selected = st.selectbox("종목 선택", list(options.keys()))
     ticker_id = int(options[selected])
 
-    # 기간 선택
+    # 기간 선택 (집계 단위: 일별/주별/월별/연별)
+    from lib.shared import PERIOD_SQL
     period = period_tabs("ticker_search_period")
-    from datetime import timedelta
-    days = PERIOD_DAYS[period]
-    period_start = max(start_date, end_date - timedelta(days=days))
+    date_sel_comm = PERIOD_SQL[period]["select"].format(date_col="p.post_date")
+    date_grp_comm = PERIOD_SQL[period]["group"].format(date_col="p.post_date")
+    date_sel_expert = PERIOD_SQL[period]["select"].format(date_col="ea.published_date")
+    date_grp_expert = PERIOD_SQL[period]["group"].format(date_col="ea.published_date")
 
     st.markdown("---")
 
@@ -240,9 +242,9 @@ def page_ticker_search(start_date, end_date):
         JOIN expert_articles ea ON ea.id = eam.article_id
         JOIN expert_sources es ON es.id = ea.source_id
         WHERE eam.ticker_id = %s AND ea.published_date BETWEEN %s AND %s AND es.source_type = 'article'
-    """, (ticker_id, period_start, end_date,
-          ticker_id, period_start, end_date,
-          ticker_id, period_start, end_date))
+    """, (ticker_id, start_date, end_date,
+          ticker_id, start_date, end_date,
+          ticker_id, start_date, end_date))
 
     if not stats.empty:
         st.dataframe(stats, use_container_width=True, hide_index=True)
@@ -251,8 +253,8 @@ def page_ticker_search(start_date, end_date):
 
     # ── 커뮤니티 언급량 ──
     st.subheader("📢 커뮤니티 언급량")
-    comm_trend = run_query("""
-        SELECT p.post_date as "날짜",
+    comm_trend = run_query(f"""
+        SELECT {date_sel_comm} as "날짜",
                COUNT(*) as "전체",
                COUNT(*) FILTER (WHERE pm.sentiment = 1) as "긍정",
                COUNT(*) FILTER (WHERE pm.sentiment = -1) as "부정",
@@ -260,8 +262,8 @@ def page_ticker_search(start_date, end_date):
         FROM post_mentions pm
         JOIN posts p ON p.id = pm.post_id
         WHERE pm.ticker_id = %s AND p.post_date BETWEEN %s AND %s
-        GROUP BY p.post_date ORDER BY 1
-    """, (ticker_id, period_start, end_date))
+        GROUP BY {date_grp_comm} ORDER BY 1
+    """, (ticker_id, start_date, end_date))
     if not comm_trend.empty:
         render_colored_line_chart(comm_trend)
     else:
@@ -271,8 +273,8 @@ def page_ticker_search(start_date, end_date):
 
     # ── 리포트 언급량 ──
     st.subheader("🔬 리포트 언급량")
-    rpt_trend = run_query("""
-        SELECT ea.published_date as "날짜",
+    rpt_trend = run_query(f"""
+        SELECT {date_sel_expert} as "날짜",
                COUNT(*) as "전체",
                COUNT(*) FILTER (WHERE eam.sentiment = 1) as "긍정",
                COUNT(*) FILTER (WHERE eam.sentiment = -1) as "부정",
@@ -281,8 +283,8 @@ def page_ticker_search(start_date, end_date):
         JOIN expert_articles ea ON ea.id = eam.article_id
         JOIN expert_sources es ON es.id = ea.source_id
         WHERE eam.ticker_id = %s AND ea.published_date BETWEEN %s AND %s AND es.source_type = 'report'
-        GROUP BY ea.published_date ORDER BY 1
-    """, (ticker_id, period_start, end_date))
+        GROUP BY {date_grp_expert} ORDER BY 1
+    """, (ticker_id, start_date, end_date))
     if not rpt_trend.empty:
         render_colored_line_chart(rpt_trend)
     else:
@@ -292,8 +294,8 @@ def page_ticker_search(start_date, end_date):
 
     # ── 뉴스 언급량 ──
     st.subheader("📰 뉴스 언급량")
-    news_trend = run_query("""
-        SELECT ea.published_date as "날짜",
+    news_trend = run_query(f"""
+        SELECT {date_sel_expert} as "날짜",
                COUNT(*) as "전체",
                COUNT(*) FILTER (WHERE eam.sentiment = 1) as "긍정",
                COUNT(*) FILTER (WHERE eam.sentiment = -1) as "부정",
@@ -302,9 +304,10 @@ def page_ticker_search(start_date, end_date):
         JOIN expert_articles ea ON ea.id = eam.article_id
         JOIN expert_sources es ON es.id = ea.source_id
         WHERE eam.ticker_id = %s AND ea.published_date BETWEEN %s AND %s AND es.source_type = 'article'
-        GROUP BY ea.published_date ORDER BY 1
-    """, (ticker_id, period_start, end_date))
+        GROUP BY {date_grp_expert} ORDER BY 1
+    """, (ticker_id, start_date, end_date))
     if not news_trend.empty:
         render_colored_line_chart(news_trend)
     else:
         st.info("뉴스 데이터가 없습니다.")
+
