@@ -3,6 +3,9 @@
 daily_worker.py에서 import하여 사용
 """
 
+import csv
+import os
+
 # ─── HTTP 요청 설정 ─────────────────────────────────────
 HEADERS = {
     "User-Agent": (
@@ -61,62 +64,33 @@ COMMUNITIES = [
 
 
 # ─── 수동 한글 별칭 (DB name과 다른 약칭들) ──────────
-# DB의 종목명은 공식 명칭이라 커뮤니티 약칭과 다른 경우가 있음
-EXTRA_ALIASES = {
-    # KRX 약칭 / 커뮤니티 약칭
-    "삼전": "005930", "삼전우": "005935",
-    "하닉": "000660", "하이닉스": "000660", "닉스": "000660",
-    "LG엔솔": "373220",
-    "한화에어": "012450",
-    "에코프로": "247540",
-    "현대차": "005380",
-    "기아차": "000270",
-    "두에빌": "034020", "두산에너빌리티": "034020",
-    "스퀘어": "402340",  # SK스퀘어
-    "솔탑투": "0167A0",  # SOL AI반도체TOP2플러스 ETF
-    # KRX 인기 ETF 별칭 (ETF는 자동 매칭 안되므로 별칭 필수)
-    "코덱스200": "069500", "코덱스": "069500",
-    "타이거200": "102110",
-    "코덱스레버리지": "122630",
-    "코덱스인버스": "114800",
-    "코덱스2차전지": "305720",
-    "타이거반도체": "091230",
-    "코덱스삼성그룹": "102780",
-    # KRX 영문명/혼합명 종목의 한글 별칭 (DB에 한글명 없는 것만)
-    "네이버": "035420",                        # DB: NAVER
-    "포스코": "005490", "포스코홀딩스": "005490", # DB: POSCO홀딩스
-    "LS일렉트릭": "010120",                     # DB: 엘에스일렉트릭
-    "KT&G": "033780",                          # DB: 케이티앤지
-    "HD한국조선해양": "009540",                  # DB: 한국조선해양
-    # 미국 한글 별칭
-    "애플": "AAPL", "구글": "GOOGL", "아마존": "AMZN",
-    "엔비디아": "NVDA", "테슬라": "TSLA",
-    "메타": "META", "페이스북": "META",
-    "넷플릭스": "NFLX", "마이크론": "MU",
-    "인텔": "INTC", "마소": "MSFT", "마이크로소프트": "MSFT",
-    "브로드컴": "AVGO", "퀄컴": "QCOM",
-    "샌디스크": "SNDK", "웨스턴디지털": "WDC", "시게이트": "STX",
-    "팔란티어": "PLTR", "소파이": "SOFI",
-    "코인베이스": "COIN", "화이자": "PFE", "모더나": "MRNA",
-    "록히드마틴": "LMT", "록히드": "LMT",
-    "보잉": "BA", "코스트코": "COST", "디즈니": "DIS",
-    "노보노디스크": "NVO", "노보": "NVO",
-    "일라이릴리": "LLY", "릴리": "LLY",
-    "골드만삭스": "GS", "JP모건": "JPM",
-    "월마트": "WMT", "나이키": "NKE",
-    "엑슨모빌": "XOM", "셰브론": "CVX",
-    "알파벳": "GOOGL", "버크셔": "BRK.B",
-    "우버": "UBER", "오라클": "ORCL", "어도비": "ADBE",
-    "니오": "NIO", "리비안": "RIVN", "리오토": "LI",
-    "온세미": "ON", "마벨": "MRVL", "램리서치": "LRCX",
-    "노스롭": "NOC", "레이시온": "RTX",
-}
+# ─── 별칭 데이터 로드 (CSV) ──────────────────────────────
+_DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
 
-# 하나의 키워드 → 여러 종목 매핑 (커뮤니티 합성어)
-MULTI_ALIASES = {
-    "삼닉": ["005930", "000660"],  # 삼성전자 + SK하이닉스
-    "삼하": ["005930", "000660"],  # 삼성전자 + SK하이닉스
-}
+def _load_aliases() -> dict:
+    """aliases.csv → {alias: symbol}"""
+    path = os.path.join(_DATA_DIR, "aliases.csv")
+    result = {}
+    with open(path, "r", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            result[row["alias"].strip()] = row["symbol"].strip()
+    return result
+
+def _load_multi_aliases() -> dict:
+    """multi_aliases.csv → {alias: [symbol, ...]}"""
+    path = os.path.join(_DATA_DIR, "multi_aliases.csv")
+    result = {}
+    with open(path, "r", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            alias = row["alias"].strip()
+            symbols = [s.strip() for s in row["symbols"].split(",")]
+            result[alias] = symbols
+    return result
+
+EXTRA_ALIASES = _load_aliases()
+MULTI_ALIASES = _load_multi_aliases()
 
 
 # ─── 오매칭 방지 ────────────────────────────────────────
