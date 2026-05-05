@@ -5,7 +5,7 @@ expert_sources.source_type = 'article' 데이터만 표시
 
 import streamlit as st
 from lib.shared import (
-    run_query, paginated_dataframe,
+    run_query, paginated_dataframe, period_tabs,
     PERIOD_OPTIONS, PERIOD_SQL, PERIOD_DAYS,
     SCORE_WEIGHT_POSITIVE, SCORE_WEIGHT_NEGATIVE, SCORE_WEIGHT_NEUTRAL,
 )
@@ -47,7 +47,7 @@ def page_overview(start_date, end_date):
     st.markdown("---")
 
     # 기간 선택
-    period = st.selectbox("📅 집계 기간", PERIOD_OPTIONS, key="news_period")
+    period = period_tabs("news_period")
     date_sel = PERIOD_SQL[period]["select"].format(date_col="ea.published_date")
     date_grp = PERIOD_SQL[period]["group"].format(date_col="ea.published_date")
 

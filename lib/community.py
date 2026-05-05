@@ -4,7 +4,7 @@
 
 import streamlit as st
 from datetime import timedelta
-from lib.shared import run_query, navigate_to, paginated_dataframe, PERIOD_OPTIONS, PERIOD_SQL, PERIOD_DAYS, SCORE_WEIGHT_POSITIVE, SCORE_WEIGHT_NEGATIVE, SCORE_WEIGHT_NEUTRAL
+from lib.shared import run_query, navigate_to, paginated_dataframe, period_tabs, PERIOD_OPTIONS, PERIOD_SQL, PERIOD_DAYS, SCORE_WEIGHT_POSITIVE, SCORE_WEIGHT_NEGATIVE, SCORE_WEIGHT_NEUTRAL
 
 
 def page_overview(start_date, end_date):
@@ -33,7 +33,7 @@ def page_overview(start_date, end_date):
     st.markdown("---")
 
     # 기간 선택
-    period = st.selectbox("📅 집계 기간", PERIOD_OPTIONS, key="comm_period")
+    period = period_tabs("comm_period")
     date_sel = PERIOD_SQL[period]["select"].format(date_col="p.post_date")
     date_grp = PERIOD_SQL[period]["group"].format(date_col="p.post_date")
 

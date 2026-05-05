@@ -106,3 +106,7 @@ PERIOD_SQL = {
 
 # TOP 10 등 집계에 사용할 최근 기간 (일 수)
 PERIOD_DAYS = {"일간": 1, "주간": 7, "월간": 30, "연간": 365}
+
+def period_tabs(key: str) -> str:
+    """집계 기간을 탭 스타일(horizontal radio) UI로 선택. 선택된 기간 문자열 반환."""
+    return st.radio("📅 집계 기간", PERIOD_OPTIONS, key=key, horizontal=True, label_visibility="collapsed")

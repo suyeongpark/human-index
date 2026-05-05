@@ -3,7 +3,7 @@
 """
 
 import streamlit as st
-from lib.shared import run_query, paginated_dataframe
+from lib.shared import run_query, paginated_dataframe, period_tabs, PERIOD_DAYS
 
 
 def page_dashboard(start_date, end_date):
@@ -11,11 +11,9 @@ def page_dashboard(start_date, end_date):
     st.title("🏠 종합 대시보드")
     st.caption("커뮤니티 · 전문가 · 뉴스 교차 분석")
 
-    # 날짜 범위
-    from lib.shared import PERIOD_OPTIONS, PERIOD_DAYS
     from datetime import timedelta
 
-    period = st.selectbox("📅 집계 기간", PERIOD_OPTIONS, key="combined_period")
+    period = period_tabs("combined_period")
     days = PERIOD_DAYS[period]
     period_start = max(start_date, end_date - timedelta(days=days))
 

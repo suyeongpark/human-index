@@ -3,7 +3,7 @@
 """
 
 import streamlit as st
-from lib.shared import run_query, paginated_dataframe, PERIOD_OPTIONS, PERIOD_SQL, PERIOD_DAYS
+from lib.shared import run_query, paginated_dataframe, period_tabs, PERIOD_OPTIONS, PERIOD_SQL, PERIOD_DAYS
 
 
 def page_overview(start_date, end_date):
@@ -45,7 +45,7 @@ def page_overview(start_date, end_date):
     st.markdown("---")
 
     # 기간 선택
-    period = st.selectbox("📅 집계 기간", PERIOD_OPTIONS, key="expert_period")
+    period = period_tabs("expert_period")
     date_sel = PERIOD_SQL[period]["select"].format(date_col="ea.published_date")
     date_grp = PERIOD_SQL[period]["group"].format(date_col="ea.published_date")
 
