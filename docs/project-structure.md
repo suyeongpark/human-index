@@ -85,11 +85,18 @@ human-index/
 │
 ├── scripts/                            # 데이터 수집 & 처리 스크립트
 │   ├── db_config.py                    # DB 접속 설정
-│   ├── crawler_config.py               # 크롤러 설정 (커뮤니티/별칭/감성 키워드 상수)
+│   ├── crawler_config.py               # 크롤러 정적 설정 (커뮤니티 목록, HTTP 헤더)
+│   ├── data_loader.py                  # CSV 데이터 로더 (별칭, 감성 키워드, 오매칭 방지)
+│   ├── data/                           # CSV 데이터 파일
+│   │   ├── aliases.csv                 # 종목 별칭 (1:1, alias→symbol)
+│   │   ├── multi_aliases.csv           # 복수 종목 별칭 (1:N)
+│   │   ├── skip_names.csv              # 오매칭 방지 목록
+│   │   ├── sentiment_words.csv         # 커뮤니티/뉴스 감성 키워드
+│   │   └── opinion_grades.csv          # 전문가 투자의견 등급 매핑
 │   ├── daily_worker.py                 # 커뮤니티 통합 파이프라인 (크롤링→추출→감성)
 │   ├── crawl_hankyung.py               # 한경 컨센서스 크롤러
 │   ├── crawl_google_news.py            # Google News RSS 크롤러
-│   └── import_tickers.py               # KRX/US 종목 마스터 임포트
+│   └── import_tickers.py               # KRX/ETF/US 종목 마스터 임포트
 │
 ├── .github/workflows/                  # GitHub Actions (리포트/뉴스만)
 │   ├── crawl-hankyung.yml              # 평일 18:30 (KST)

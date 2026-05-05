@@ -21,10 +21,12 @@
 | 파일 | 역할 |
 |------|------|
 | `db_config.py` | DB 접속 설정 (secrets.toml → 환경변수 → 기본값 순) |
-| `crawler_config.py` | 크롤러 상수 (커뮤니티 목록, 별칭 매핑, 감성 키워드, 오매칭 방지) |
+| `crawler_config.py` | 크롤러 정적 설정 (커뮤니티 목록, HTTP 헤더, DATA_DIR 경로) |
+| `data_loader.py` | CSV 데이터 로더 (별칭, 감성 키워드, 오매칭 방지, 투자의견 등급) |
 | `daily_worker.py` | 커뮤니티 크롤링 통합 파이프라인 + 종목 추출 + 감성 분석 |
 | `crawl_hankyung.py` | 한경 컨센서스 리포트 크롤러 (독립 실행) |
 | `crawl_google_news.py` | Google News RSS 파서 (독립 실행) |
+| `import_tickers.py` | KRX/ETF/US 종목 마스터 임포트 |
 
 ---
 
@@ -127,11 +129,26 @@ SCORE_WEIGHT_NEUTRAL  = 1.0   # 중립
 
 ### 종목 별칭 추가
 
-1. 1:1 매핑: `crawler_config.py`의 `EXTRA_ALIASES`에 추가
-2. 1:N 매핑 (커뮤니티 합성어): `MULTI_ALIASES`에 추가
-3. 오매칭 방지: `SKIP_NAMES`에 추가
+1. 1:1 매핑: `scripts/data/aliases.csv`에 `alias,symbol` 행 추가
+2. 1:N 매핑 (커뮤니티 합성어): `scripts/data/multi_aliases.csv`에 추가
+3. 오매칭 방지: `scripts/data/skip_names.csv`에 추가
+
+### 감성 키워드 추가
+
+- 커뮤니티/뉴스: `scripts/data/sentiment_words.csv`에 `word,sentiment` 행 추가
+- 전문가 투자의견: `scripts/data/opinion_grades.csv`에 `grade,sentiment` 행 추가
 
 > 종목 매칭은 제목과 키워드 모두 `upper()`로 변환하여 대소문자 무시 매칭합니다.
+
+### CSV 데이터 파일 구조
+
+| 파일 | 헤더 | 용도 |
+|------|------|------|
+| `aliases.csv` | alias, symbol | 종목 별칭 (1:1) |
+| `multi_aliases.csv` | alias, symbols | 복수 종목 별칭 (1:N, 쉼표구분) |
+| `skip_names.csv` | name | 오매칭 방지 |
+| `sentiment_words.csv` | word, sentiment | 감성 키워드 (positive/negative) |
+| `opinion_grades.csv` | grade, sentiment | 투자의견 등급 (1/0/-1) |
 
 ### 새 전문가 소스 추가
 
