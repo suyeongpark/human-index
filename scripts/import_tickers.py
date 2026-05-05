@@ -156,6 +156,66 @@ def import_krx(cur):
     return inserted, updated
 
 
+def fetch_krx_etf() -> list[dict]:
+    """네이버 금융에서 KRX ETF 전체 목록 조회 (페이지네이션)"""
+    results = []
+    page = 1
+    while True:
+        url = f"https://finance.naver.com/api/sise/etfItemList.nhn?etfType=0&targetColumn=market_sum&sortOrder=desc&page={page}&pageSize=100"
+        headers = {"User-Agent": "Mozilla/5.0"}
+        resp = requests.get(url, headers=headers, timeout=15)
+        data = resp.json()
+        items = data.get("result", {}).get("etfItemList", [])
+        if not items:
+            break
+        for item in items:
+            symbol = item.get("itemcode", "").strip()
+            name = item.get("itemname", "").strip()
+            if symbol and name:
+                results.append({"symbol": symbol, "name": name})
+        total_pages = data.get("result", {}).get("totalPages", 1)
+        if page >= total_pages:
+            break
+        page += 1
+    return results
+
+
+def import_krx_etf(cur):
+    """KRX ETF 전체 임포트"""
+    print("\n📌 KRX ETF 임포트...")
+    inserted = 0
+    updated = 0
+
+    try:
+        etfs = fetch_krx_etf()
+    except Exception as e:
+        print(f"  ❌ ETF 조회 실패: {e}")
+        return 0, 0
+
+    for t in etfs:
+        try:
+            cur.execute(
+                """
+                INSERT INTO tickers (symbol, name, market, is_active)
+                VALUES (%s, %s, 'ETF', TRUE)
+                ON CONFLICT (symbol) DO UPDATE
+                    SET name = EXCLUDED.name, market = 'ETF'
+                RETURNING (xmax = 0) as is_new
+                """,
+                (t["symbol"], t["name"]),
+            )
+            is_new = cur.fetchone()[0]
+            if is_new:
+                inserted += 1
+            else:
+                updated += 1
+        except Exception:
+            pass
+
+    print(f"  ✅ ETF: {len(etfs)}개 처리")
+    return inserted, updated
+
+
 def import_us_from_sec(cur):
     """SEC EDGAR에서 미국 전체 상장 종목 임포트"""
     print("\n📌 미국 종목 임포트 (SEC EDGAR)...")
@@ -228,6 +288,9 @@ def main():
 
                 krx_ins, krx_upd = import_krx(cur)
                 print(f"  → 신규: {krx_ins}, 업데이트: {krx_upd}")
+
+                etf_ins, etf_upd = import_krx_etf(cur)
+                print(f"  → 신규: {etf_ins}, 업데이트: {etf_upd}")
 
                 us_ins, us_upd = import_us_from_sec(cur)
                 print(f"  → 신규: {us_ins}, 업데이트: {us_upd}")
