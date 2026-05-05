@@ -114,6 +114,41 @@ def period_tabs(key: str) -> str:
 
 # ─── 공통 UI 컴포넌트 ──────────────────────────────────
 
+# 감성/투자의견 색상 매핑 (긍정=파랑, 부정=빨강, 중립=회색)
+COLOR_POSITIVE = "#4A90D9"  # 파란색 (긍정/Buy)
+COLOR_NEGATIVE = "#E74C3C"  # 빨간색 (부정/Sell)
+COLOR_NEUTRAL  = "#95A5A6"  # 회색   (중립/Hold)
+
+SENTIMENT_COLORS = {
+    "👍 긍정": COLOR_POSITIVE, "긍정": COLOR_POSITIVE,
+    "👎 부정": COLOR_NEGATIVE, "부정": COLOR_NEGATIVE,
+    "➖ 중립": COLOR_NEUTRAL,  "중립": COLOR_NEUTRAL,
+    "📈 Buy": COLOR_POSITIVE,
+    "📉 Sell": COLOR_NEGATIVE,
+    "➖ Hold": COLOR_NEUTRAL,
+    "전체": "#2C3E50",
+}
+
+
+def render_colored_line_chart(df, date_col=None):
+    """감성 색상이 적용된 라인 차트. df의 컬럼명으로 색상을 자동 매핑."""
+    if df.empty:
+        return
+    import altair as alt
+
+    idx = date_col or df.columns[0]
+    value_cols = [c for c in df.columns if c != idx]
+    colors = [SENTIMENT_COLORS.get(c, "#2C3E50") for c in value_cols]
+
+    melted = df.melt(id_vars=[idx], value_vars=value_cols, var_name="구분", value_name="건수")
+    chart = alt.Chart(melted).mark_line(strokeWidth=2).encode(
+        x=alt.X(f"{idx}:T", title="날짜"),
+        y=alt.Y("건수:Q"),
+        color=alt.Color("구분:N", scale=alt.Scale(domain=value_cols, range=colors), legend=alt.Legend(title=None)),
+    ).properties(height=300)
+    st.altair_chart(chart, use_container_width=True)
+
+
 def render_top10_chart(df, x_label="언급 수", height=350):
     """TOP 10 수평 바 차트 렌더링. df는 '종목', x_label 컬럼 필요."""
     if df.empty:
@@ -130,7 +165,7 @@ def render_trend_chart(query, params):
     """트렌드 라인 차트. 쿼리 결과의 첫 번째 컬럼을 인덱스로 사용."""
     df = run_query(query, params)
     if not df.empty:
-        st.line_chart(df.set_index(df.columns[0]))
+        render_colored_line_chart(df)
     return df
 
 

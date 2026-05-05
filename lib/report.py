@@ -3,7 +3,7 @@
 """
 
 import streamlit as st
-from lib.shared import run_query, paginated_dataframe, period_tabs, render_top10_chart, render_surge_page, PERIOD_OPTIONS, PERIOD_SQL, PERIOD_DAYS
+from lib.shared import run_query, paginated_dataframe, period_tabs, render_top10_chart, render_surge_page, render_colored_line_chart, PERIOD_OPTIONS, PERIOD_SQL, PERIOD_DAYS
 
 
 def page_overview(start_date, end_date):
@@ -63,7 +63,7 @@ def page_overview(start_date, end_date):
         GROUP BY {date_grp} ORDER BY 1
     """, (start_date, end_date))
     if not expert_trend.empty:
-        st.line_chart(expert_trend.set_index("날짜"))
+        render_colored_line_chart(expert_trend)
 
     st.markdown("---")
 

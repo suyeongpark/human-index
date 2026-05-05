@@ -6,7 +6,7 @@ import streamlit as st
 from datetime import timedelta
 from lib.shared import (
     run_query, navigate_to, paginated_dataframe, period_tabs,
-    render_top10_chart, render_surge_page,
+    render_top10_chart, render_surge_page, render_colored_line_chart,
     PERIOD_OPTIONS, PERIOD_SQL, PERIOD_DAYS,
     SCORE_WEIGHT_POSITIVE, SCORE_WEIGHT_NEGATIVE, SCORE_WEIGHT_NEUTRAL,
 )
@@ -55,7 +55,7 @@ def page_overview(start_date, end_date):
         GROUP BY {date_grp} ORDER BY 1
     """, (start_date, end_date))
     if not sentiment_trend.empty:
-        st.line_chart(sentiment_trend.set_index("날짜"))
+        render_colored_line_chart(sentiment_trend)
 
     st.markdown("---")
 

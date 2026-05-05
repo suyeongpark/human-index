@@ -3,7 +3,7 @@
 """
 
 import streamlit as st
-from lib.shared import run_query, paginated_dataframe, period_tabs, render_top10_chart, PERIOD_DAYS
+from lib.shared import run_query, paginated_dataframe, period_tabs, render_top10_chart, render_colored_line_chart, PERIOD_DAYS
 
 
 def page_dashboard(start_date, end_date):
@@ -259,7 +259,7 @@ def page_ticker_search(start_date, end_date):
         GROUP BY p.post_date ORDER BY 1
     """, (ticker_id, period_start, end_date))
     if not comm_trend.empty:
-        st.line_chart(comm_trend.set_index("날짜"))
+        render_colored_line_chart(comm_trend)
     else:
         st.info("커뮤니티 언급 데이터가 없습니다.")
 
@@ -280,7 +280,7 @@ def page_ticker_search(start_date, end_date):
         GROUP BY ea.published_date ORDER BY 1
     """, (ticker_id, period_start, end_date))
     if not rpt_trend.empty:
-        st.line_chart(rpt_trend.set_index("날짜"))
+        render_colored_line_chart(rpt_trend)
     else:
         st.info("리포트 데이터가 없습니다.")
 
@@ -301,6 +301,6 @@ def page_ticker_search(start_date, end_date):
         GROUP BY ea.published_date ORDER BY 1
     """, (ticker_id, period_start, end_date))
     if not news_trend.empty:
-        st.line_chart(news_trend.set_index("날짜"))
+        render_colored_line_chart(news_trend)
     else:
         st.info("뉴스 데이터가 없습니다.")

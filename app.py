@@ -6,7 +6,7 @@ Human Index Dashboard
 import streamlit as st
 
 from lib.shared import run_query
-from lib import community, expert, news, combined
+from lib import community, report, news, overview
 
 # ─── 페이지 설정 ─────────────────────────────────────
 st.set_page_config(
@@ -163,18 +163,18 @@ PAGE_MAP = {
     "🚀 급상승 랭킹": community.page_surge_ranking,
     "📋 게시글 목록": community.page_post_list,
     # 리포트
-    "📈 리포트 개요": expert.page_overview,
-    "📊 리포트 랭킹": expert.page_report_ranking,
-    "🚀 리포트 급상승": expert.page_surge_ranking,
-    "📋 리포트 목록": expert.page_report_list,
+    "📈 리포트 개요": report.page_overview,
+    "📊 리포트 랭킹": report.page_report_ranking,
+    "🚀 리포트 급상승": report.page_surge_ranking,
+    "📋 리포트 목록": report.page_report_list,
     # 뉴스
     "📈 뉴스 개요": news.page_overview,
     "📊 뉴스 언급량 랭킹": news.page_mention_ranking,
     "🚀 뉴스 급상승": news.page_surge_ranking,
     "📋 뉴스 목록": news.page_article_list,
     # 종합
-    "🏠 종합 대시보드": combined.page_dashboard,
-    "🔍 종목 검색": combined.page_ticker_search,
+    "🏠 종합 대시보드": overview.page_dashboard,
+    "🔍 종목 검색": overview.page_ticker_search,
 }
 
 page = st.session_state.page
