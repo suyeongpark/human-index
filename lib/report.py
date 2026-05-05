@@ -198,7 +198,7 @@ def page_report_ranking(start_date, end_date):
     page_header("📊 종목별 리포트 랭킹", "기간별 종목 리포트 커버 빈도 및 투자의견 랭킹")
 
     from datetime import timedelta
-    period = period_tabs("rpt_ranking_period")
+    period = period_tabs("rpt_ranking_period", include_daily=True)
     days = PERIOD_DAYS[period]
     period_start = max(start_date, end_date - timedelta(days=days))
 

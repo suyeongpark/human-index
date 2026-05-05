@@ -175,7 +175,7 @@ def page_dashboard(start_date, end_date):
 
     from datetime import timedelta
 
-    period = period_tabs("combined_period")
+    period = period_tabs("combined_period", include_daily=True)
     days = PERIOD_DAYS[period]
     period_start = max(start_date, end_date - timedelta(days=days))
 
@@ -283,7 +283,7 @@ def page_ticker_search(start_date, end_date):
 
     # 기간 선택 (집계 단위: 일별/주별/월별/연별)
     from lib.shared import PERIOD_SQL
-    period = period_tabs("ticker_search_period")
+    period = period_tabs("ticker_search_period", include_daily=True)
     date_sel_comm = PERIOD_SQL[period]["select"].format(date_col="p.post_date")
     date_grp_comm = PERIOD_SQL[period]["group"].format(date_col="p.post_date")
     date_sel_expert = PERIOD_SQL[period]["select"].format(date_col="ea.published_date")

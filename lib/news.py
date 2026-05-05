@@ -195,7 +195,7 @@ def page_mention_ranking(start_date, end_date):
     page_header("📊 뉴스 언급량 랭킹", "기간별 뉴스 종목 언급 빈도 및 감성 점수 랭킹")
 
     from datetime import timedelta
-    period = period_tabs("news_ranking_period")
+    period = period_tabs("news_ranking_period", include_daily=True)
     days = PERIOD_DAYS[period]
     period_start = max(start_date, end_date - timedelta(days=days))
 
