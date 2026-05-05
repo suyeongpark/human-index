@@ -10,7 +10,7 @@
 | 대시보드 | Python + Streamlit → Streamlit Cloud 배포 |
 | DB | PostgreSQL → Supabase 클라우드 |
 | 크롤링 | Python (requests + BeautifulSoup + RSS XML) |
-| 스케줄링 | **GitHub Actions** (주력) + macOS launchd (백업) |
+| 스케줄링 | **GitHub Actions** |
 
 ## 시나리오
 
