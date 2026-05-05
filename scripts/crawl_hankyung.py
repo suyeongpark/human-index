@@ -273,29 +273,23 @@ def insert_articles(cur, source_id: int, articles: list[dict]) -> tuple[int, int
     return inserted, skipped
 
 
+_OPINION_GRADES = None
+
 def map_opinion_to_sentiment(opinion: str | None) -> int:
-    """투자의견을 sentiment 값으로 매핑"""
+    """투자의견을 sentiment 값으로 매핑 (opinion_grades.csv 기반)"""
+    global _OPINION_GRADES
+    if _OPINION_GRADES is None:
+        from data_loader import load_opinion_grades
+        _OPINION_GRADES = load_opinion_grades()
+
     if not opinion:
         return 0
 
     opinion_lower = opinion.lower().strip()
 
-    # 긍정 (매수 계열)
-    positive = ["buy", "매수", "strong buy", "outperform", "overweight", "trading buy", "top pick"]
-    # 부정 (매도 계열)
-    negative = ["sell", "매도", "strong sell", "underperform", "underweight", "reduce"]
-    # 중립
-    neutral = ["hold", "neutral", "중립", "marketperform", "market perform", "equal-weight"]
-
-    for kw in positive:
-        if kw in opinion_lower:
-            return 1
-    for kw in negative:
-        if kw in opinion_lower:
-            return -1
-    for kw in neutral:
-        if kw in opinion_lower:
-            return 0
+    for grade, sentiment in _OPINION_GRADES.items():
+        if grade in opinion_lower:
+            return sentiment
 
     return 0
 

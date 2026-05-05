@@ -57,3 +57,14 @@ def load_sentiment_words() -> tuple[list, list]:
             elif row["sentiment"].strip() == "negative":
                 negative.append(word)
     return positive, negative
+
+
+def load_opinion_grades() -> dict:
+    """opinion_grades.csv → {grade_lower: sentiment_int}"""
+    path = os.path.join(_DATA_DIR, "opinion_grades.csv")
+    result = {}
+    with open(path, "r", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            result[row["grade"].strip().lower()] = int(row["sentiment"].strip())
+    return result

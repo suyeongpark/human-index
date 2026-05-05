@@ -1,0 +1,20 @@
+grade,sentiment
+buy,1
+매수,1
+strong buy,1
+outperform,1
+overweight,1
+trading buy,1
+top pick,1
+sell,-1
+매도,-1
+strong sell,-1
+underperform,-1
+underweight,-1
+reduce,-1
+hold,0
+neutral,0
+중립,0
+marketperform,0
+market perform,0
+equal-weight,0
