@@ -7,9 +7,9 @@ from lib.shared import run_query, paginated_dataframe, period_tabs, PERIOD_OPTIO
 
 
 def page_overview(start_date, end_date):
-    """📈 전문가 개요"""
-    st.title("🔬 전문가 대시보드")
-    st.caption("증권사 리포트 분석 (전문가 의견)")
+    """📈 리포트 개요"""
+    st.title("🔬 리포트 대시보드")
+    st.caption("증권사 리포트 분석")
 
     kpi_ex = run_query("""
         SELECT
@@ -92,7 +92,7 @@ def page_overview(start_date, end_date):
 
 def page_surge_ranking(start_date, end_date):
     """🚀 급상승 랭킹"""
-    st.title("🚀 전문가 급상승 종목")
+    st.title("🚀 리포트 급상승 종목")
 
     from datetime import timedelta
     period = period_tabs("expert_surge_period")

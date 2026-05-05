@@ -87,7 +87,7 @@ start_date, end_date = min_date, max_date
 
 # ─── 메뉴 섹션 정의 ──────────────────────────────────
 COMMUNITY_PAGES = ["📈 커뮤니티 개요", "📊 언급량 랭킹", "🚀 급상승 랭킹", "📋 게시글 목록"]
-EXPERT_PAGES = ["📈 전문가 개요", "📊 리포트 랭킹", "🚀 전문가 급상승", "📋 리포트 목록"]
+EXPERT_PAGES = ["📈 리포트 개요", "📊 리포트 랭킹", "🚀 리포트 급상승", "📋 리포트 목록"]
 NEWS_PAGES = ["📈 뉴스 개요", "📊 뉴스 언급량 랭킹", "🚀 뉴스 급상승", "📋 뉴스 목록"]
 COMBINED_PAGES = ["🏠 종합 대시보드", "🔍 종목 검색"]
 
@@ -131,9 +131,9 @@ st.sidebar.radio(
     label_visibility="collapsed",
 )
 
-st.sidebar.markdown("#### 🔬 전문가")
+st.sidebar.markdown("#### 🔬 리포트")
 st.sidebar.radio(
-    "전문가", EXPERT_PAGES, key="_radio_expert",
+    "리포트", EXPERT_PAGES, key="_radio_expert",
     index=expert_idx if expert_idx is not None else None,
     on_change=_make_handler("_radio_expert", ["_radio_community", "_radio_news", "_radio_combined"]),
     label_visibility="collapsed",
@@ -162,10 +162,10 @@ PAGE_MAP = {
     "📊 언급량 랭킹": community.page_mention_ranking,
     "🚀 급상승 랭킹": community.page_surge_ranking,
     "📋 게시글 목록": community.page_post_list,
-    # 전문가
-    "📈 전문가 개요": expert.page_overview,
+    # 리포트
+    "📈 리포트 개요": expert.page_overview,
     "📊 리포트 랭킹": expert.page_report_ranking,
-    "🚀 전문가 급상승": expert.page_surge_ranking,
+    "🚀 리포트 급상승": expert.page_surge_ranking,
     "📋 리포트 목록": expert.page_report_list,
     # 뉴스
     "📈 뉴스 개요": news.page_overview,
