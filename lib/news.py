@@ -23,14 +23,16 @@ SQL_KPI = """
          JOIN expert_articles ea ON ea.id = eam.article_id
          JOIN expert_sources es ON es.id = ea.source_id
          WHERE ea.published_date BETWEEN %s AND %s AND es.source_type = 'article') as unique_tickers,
-        (SELECT COUNT(*) FROM expert_article_mentions eam
+        (SELECT ROUND(100.0 * COUNT(*) FILTER (WHERE eam.sentiment = 1) / NULLIF(COUNT(*), 0), 1)
+         FROM expert_article_mentions eam
          JOIN expert_articles ea ON ea.id = eam.article_id
          JOIN expert_sources es ON es.id = ea.source_id
-         WHERE ea.published_date BETWEEN %s AND %s AND es.source_type = 'article' AND eam.sentiment = 1) as pos_cnt,
-        (SELECT COUNT(*) FROM expert_article_mentions eam
+         WHERE ea.published_date BETWEEN %s AND %s AND es.source_type = 'article') as positive_rate,
+        (SELECT ROUND(100.0 * COUNT(*) FILTER (WHERE eam.sentiment = -1) / NULLIF(COUNT(*), 0), 1)
+         FROM expert_article_mentions eam
          JOIN expert_articles ea ON ea.id = eam.article_id
          JOIN expert_sources es ON es.id = ea.source_id
-         WHERE ea.published_date BETWEEN %s AND %s AND es.source_type = 'article' AND eam.sentiment <= 0) as other_cnt
+         WHERE ea.published_date BETWEEN %s AND %s AND es.source_type = 'article') as negative_rate
 """
 
 SQL_SENTIMENT_TREND = """
@@ -156,11 +158,10 @@ def page_overview(start_date, end_date):
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("📰 총 기사", f"{kpi['total_articles'].iloc[0]:,}")
     c2.metric("📌 종목 수", f"{kpi['unique_tickers'].iloc[0]}")
-    pos = kpi['pos_cnt'].iloc[0]
-    total_op = pos + kpi['other_cnt'].iloc[0]
-    pos_pct = round(100 * pos / total_op, 1) if total_op > 0 else 0
-    c3.metric("👍 긍정률", f"{pos_pct}%")
-    c4.metric("💬 총 언급", f"{(pos + kpi['other_cnt'].iloc[0]):,}")
+    pos_rate = kpi['positive_rate'].iloc[0] or 0
+    neg_rate = kpi['negative_rate'].iloc[0] or 0
+    c3.metric("👍 긍정률", f"{pos_rate}%")
+    c4.metric("👎 부정률", f"{neg_rate}%")
 
     # 감성 변화 추이
     st.subheader("📈 감성 변화 추이")

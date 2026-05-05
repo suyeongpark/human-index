@@ -17,12 +17,14 @@ from lib.shared import (
 SQL_KPI = """
     SELECT
         (SELECT COUNT(*) FROM posts WHERE post_date BETWEEN %s AND %s) as total_posts,
-        (SELECT COUNT(*) FROM post_mentions pm JOIN posts p ON p.id = pm.post_id
-         WHERE p.post_date BETWEEN %s AND %s) as total_mentions,
         (SELECT COUNT(DISTINCT pm.ticker_id) FROM post_mentions pm JOIN posts p ON p.id = pm.post_id
          WHERE p.post_date BETWEEN %s AND %s) as unique_tickers,
-        (SELECT COUNT(DISTINCT p.author) FROM posts p
-         WHERE p.post_date BETWEEN %s AND %s) as unique_authors
+        (SELECT ROUND(100.0 * COUNT(*) FILTER (WHERE pm.sentiment = 1) / NULLIF(COUNT(*), 0), 1)
+         FROM post_mentions pm JOIN posts p ON p.id = pm.post_id
+         WHERE p.post_date BETWEEN %s AND %s) as positive_rate,
+        (SELECT ROUND(100.0 * COUNT(*) FILTER (WHERE pm.sentiment = -1) / NULLIF(COUNT(*), 0), 1)
+         FROM post_mentions pm JOIN posts p ON p.id = pm.post_id
+         WHERE p.post_date BETWEEN %s AND %s) as negative_rate
 """
 
 SQL_SENTIMENT_TREND = """
@@ -173,9 +175,11 @@ def page_overview(start_date, end_date):
 
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("📝 총 게시글", f"{kpi['total_posts'].iloc[0]:,}")
-    col2.metric("💬 종목 언급", f"{kpi['total_mentions'].iloc[0]:,}")
-    col3.metric("📌 언급 종목 수", f"{kpi['unique_tickers'].iloc[0]}")
-    col4.metric("👤 작성자 수", f"{kpi['unique_authors'].iloc[0]:,}")
+    col2.metric("📌 종목 수", f"{kpi['unique_tickers'].iloc[0]}")
+    pos_rate = kpi['positive_rate'].iloc[0] or 0
+    neg_rate = kpi['negative_rate'].iloc[0] or 0
+    col3.metric("👍 긍정률", f"{pos_rate}%")
+    col4.metric("👎 부정률", f"{neg_rate}%")
 
     # 감성 변화 추이
     st.subheader("📈 감성 변화 추이")

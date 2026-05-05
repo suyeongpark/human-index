@@ -21,9 +21,10 @@ SQL_KPI = """
          JOIN expert_articles ea ON ea.id = eam.article_id
          JOIN expert_sources es ON es.id = ea.source_id
          WHERE ea.published_date BETWEEN %s AND %s AND es.source_type = 'report') as unique_tickers,
-        (SELECT COUNT(DISTINCT ea.securities_firm) FROM expert_articles ea
+        (SELECT COUNT(*) FROM expert_article_mentions eam
+         JOIN expert_articles ea ON ea.id = eam.article_id
          JOIN expert_sources es ON es.id = ea.source_id
-         WHERE ea.published_date BETWEEN %s AND %s AND es.source_type = 'report' AND ea.securities_firm IS NOT NULL) as firms,
+         WHERE ea.published_date BETWEEN %s AND %s AND es.source_type = 'report') as total_opinions,
         (SELECT COUNT(*) FROM expert_article_mentions eam
          JOIN expert_articles ea ON ea.id = eam.article_id
          JOIN expert_sources es ON es.id = ea.source_id
@@ -31,7 +32,7 @@ SQL_KPI = """
         (SELECT COUNT(*) FROM expert_article_mentions eam
          JOIN expert_articles ea ON ea.id = eam.article_id
          JOIN expert_sources es ON es.id = ea.source_id
-         WHERE ea.published_date BETWEEN %s AND %s AND es.source_type = 'report' AND eam.sentiment <= 0) as other_cnt
+         WHERE ea.published_date BETWEEN %s AND %s AND es.source_type = 'report' AND eam.sentiment = 0) as hold_cnt
 """
 
 SQL_OPINION_TREND = """
@@ -159,11 +160,13 @@ def page_overview(start_date, end_date):
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("📄 총 리포트", f"{kpi_ex['total_reports'].iloc[0]:,}")
     c2.metric("📌 종목 수", f"{kpi_ex['unique_tickers'].iloc[0]}")
-    c3.metric("🏢 증권사 수", f"{kpi_ex['firms'].iloc[0]}")
-    buy = kpi_ex['buy_cnt'].iloc[0]
-    total_op = buy + kpi_ex['other_cnt'].iloc[0]
-    buy_pct = round(100 * buy / total_op, 1) if total_op > 0 else 0
-    c4.metric("📈 Buy 비율", f"{buy_pct}%")
+    total_op = kpi_ex['total_opinions'].iloc[0]
+    buy_cnt = kpi_ex['buy_cnt'].iloc[0]
+    hold_cnt = kpi_ex['hold_cnt'].iloc[0]
+    buy_pct = round(100 * buy_cnt / total_op, 1) if total_op > 0 else 0
+    hold_pct = round(100 * hold_cnt / total_op, 1) if total_op > 0 else 0
+    c3.metric("📈 Buy 비율", f"{buy_pct}%")
+    c4.metric("⚖️ Hold 비율", f"{hold_pct}%")
 
     # 투자의견 변화 추이
     st.subheader("📈 투자의견 변화 추이")
