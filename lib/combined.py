@@ -214,6 +214,56 @@ def page_ticker_search(start_date, end_date):
 
     st.markdown("---")
 
+    # ── 채널별 수치 테이블 ──
+    st.subheader("📊 채널별 수치 비교")
+    stats = run_query("""
+        SELECT '커뮤니티' as "채널",
+               COUNT(*) as "총 언급",
+               COUNT(*) FILTER (WHERE pm.sentiment = 1) as "👍 긍정",
+               COUNT(*) FILTER (WHERE pm.sentiment = -1) as "👎 부정",
+               COUNT(*) FILTER (WHERE pm.sentiment = 0) as "➖ 중립",
+               ROUND(100.0 * COUNT(*) FILTER (WHERE pm.sentiment = 1) / NULLIF(COUNT(*), 0), 1) as "긍정률(%%)",
+               ROUND(((AVG(pm.sentiment) + 1) * 50)::numeric, 1) as "감성 점수"
+        FROM post_mentions pm
+        JOIN posts p ON p.id = pm.post_id
+        WHERE pm.ticker_id = %s AND p.post_date BETWEEN %s AND %s
+
+        UNION ALL
+
+        SELECT '리포트',
+               COUNT(*),
+               COUNT(*) FILTER (WHERE eam.sentiment = 1),
+               COUNT(*) FILTER (WHERE eam.sentiment = -1),
+               COUNT(*) FILTER (WHERE eam.sentiment = 0),
+               ROUND(100.0 * COUNT(*) FILTER (WHERE eam.sentiment = 1) / NULLIF(COUNT(*), 0), 1),
+               ROUND(((AVG(eam.sentiment) + 1) * 50)::numeric, 1)
+        FROM expert_article_mentions eam
+        JOIN expert_articles ea ON ea.id = eam.article_id
+        JOIN expert_sources es ON es.id = ea.source_id
+        WHERE eam.ticker_id = %s AND ea.published_date BETWEEN %s AND %s AND es.source_type = 'report'
+
+        UNION ALL
+
+        SELECT '뉴스',
+               COUNT(*),
+               COUNT(*) FILTER (WHERE eam.sentiment = 1),
+               COUNT(*) FILTER (WHERE eam.sentiment = -1),
+               COUNT(*) FILTER (WHERE eam.sentiment = 0),
+               ROUND(100.0 * COUNT(*) FILTER (WHERE eam.sentiment = 1) / NULLIF(COUNT(*), 0), 1),
+               ROUND(((AVG(eam.sentiment) + 1) * 50)::numeric, 1)
+        FROM expert_article_mentions eam
+        JOIN expert_articles ea ON ea.id = eam.article_id
+        JOIN expert_sources es ON es.id = ea.source_id
+        WHERE eam.ticker_id = %s AND ea.published_date BETWEEN %s AND %s AND es.source_type = 'article'
+    """, (ticker_id, start_date, end_date,
+          ticker_id, start_date, end_date,
+          ticker_id, start_date, end_date))
+
+    if not stats.empty:
+        st.dataframe(stats, use_container_width=True, hide_index=True)
+
+    st.markdown("---")
+
     # ── 커뮤니티 언급량 ──
     st.subheader("📢 커뮤니티 언급량")
     comm_trend = run_query(f"""
@@ -274,52 +324,3 @@ def page_ticker_search(start_date, end_date):
     else:
         st.info("뉴스 데이터가 없습니다.")
 
-    st.markdown("---")
-
-    # ── 채널별 수치 테이블 ──
-    st.subheader("📊 채널별 수치 비교")
-    stats = run_query("""
-        SELECT '커뮤니티' as "채널",
-               COUNT(*) as "총 언급",
-               COUNT(*) FILTER (WHERE pm.sentiment = 1) as "👍 긍정",
-               COUNT(*) FILTER (WHERE pm.sentiment = -1) as "👎 부정",
-               COUNT(*) FILTER (WHERE pm.sentiment = 0) as "➖ 중립",
-               ROUND(100.0 * COUNT(*) FILTER (WHERE pm.sentiment = 1) / NULLIF(COUNT(*), 0), 1) as "긍정률(%%)",
-               ROUND(((AVG(pm.sentiment) + 1) * 50)::numeric, 1) as "감성 점수"
-        FROM post_mentions pm
-        JOIN posts p ON p.id = pm.post_id
-        WHERE pm.ticker_id = %s AND p.post_date BETWEEN %s AND %s
-
-        UNION ALL
-
-        SELECT '리포트',
-               COUNT(*),
-               COUNT(*) FILTER (WHERE eam.sentiment = 1),
-               COUNT(*) FILTER (WHERE eam.sentiment = -1),
-               COUNT(*) FILTER (WHERE eam.sentiment = 0),
-               ROUND(100.0 * COUNT(*) FILTER (WHERE eam.sentiment = 1) / NULLIF(COUNT(*), 0), 1),
-               ROUND(((AVG(eam.sentiment) + 1) * 50)::numeric, 1)
-        FROM expert_article_mentions eam
-        JOIN expert_articles ea ON ea.id = eam.article_id
-        JOIN expert_sources es ON es.id = ea.source_id
-        WHERE eam.ticker_id = %s AND ea.published_date BETWEEN %s AND %s AND es.source_type = 'report'
-
-        UNION ALL
-
-        SELECT '뉴스',
-               COUNT(*),
-               COUNT(*) FILTER (WHERE eam.sentiment = 1),
-               COUNT(*) FILTER (WHERE eam.sentiment = -1),
-               COUNT(*) FILTER (WHERE eam.sentiment = 0),
-               ROUND(100.0 * COUNT(*) FILTER (WHERE eam.sentiment = 1) / NULLIF(COUNT(*), 0), 1),
-               ROUND(((AVG(eam.sentiment) + 1) * 50)::numeric, 1)
-        FROM expert_article_mentions eam
-        JOIN expert_articles ea ON ea.id = eam.article_id
-        JOIN expert_sources es ON es.id = ea.source_id
-        WHERE eam.ticker_id = %s AND ea.published_date BETWEEN %s AND %s AND es.source_type = 'article'
-    """, (ticker_id, start_date, end_date,
-          ticker_id, start_date, end_date,
-          ticker_id, start_date, end_date))
-
-    if not stats.empty:
-        st.dataframe(stats, use_container_width=True, hide_index=True)
