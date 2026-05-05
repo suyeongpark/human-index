@@ -40,10 +40,11 @@ human-index/
 │
 ├── lib/                                # 대시보드 페이지 모듈
 │   ├── __init__.py
-│   ├── shared.py                       # 공통: DB 연결, run_query, navigate_to, paginated_dataframe
+│   ├── shared.py                       # 공통: DB, 쿼리, 페이지네이션, 차트 헬퍼
 │   ├── community.py                    # 📢 커뮤니티 페이지 (5개)
-│   ├── expert.py                       # 🔬 전문가 페이지 (3개)
-│   └── combined.py                     # 📊 종합 페이지 (2개)
+│   ├── report.py                       # 🔬 리포트 페이지 (4개)
+│   ├── news.py                         # 📰 뉴스 페이지 (4개)
+│   └── overview.py                     # 📊 종합 페이지 (2개)
 │
 ├── scripts/                            # 데이터 수집 & 처리 스크립트
 │   ├── db_config.py                    # DB 접속 설정 (secrets.toml → 환경변수 → 기본값)
@@ -80,32 +81,57 @@ human-index/
 
 ## 대시보드 페이지 구성
 
-> 모든 테이블은 25건 단위 페이지네이션 적용
+> 모든 테이블은 25건 단위 페이지네이션 적용. 기간 선택은 **일간/주간/월간/연간** 탭 UI.
+
+### 사이드바 메뉴 순서
+
+**종합** → **커뮤니티** → **리포트** → **뉴스** (종합 대시보드가 첫 화면)
+
+### 🏠 종합 (교차 분석) — `lib/overview.py`
+
+| 페이지 | 함수 | 설명 |
+|--------|------|------|
+| 🏠 종합 대시보드 | `page_dashboard` | KPI, 채널별 TOP 10 (커뮤니티/리포트/뉴스) |
+| 🔍 종목 검색 | `page_ticker_search` | 채널별 수치 비교 + 3채널 트렌드 차트 (집계 단위 탭) |
 
 ### 📢 커뮤니티 (대중 의견) — `lib/community.py`
 
 | 페이지 | 함수 | 설명 |
 |--------|------|------|
-| 📈 커뮤니티 개요 | `page_overview` | KPI, 일별 게시글/언급 추이, 감성 분포, TOP 10 종목 |
-| 📊 언급량 랭킹 | `page_mention_ranking` | 종목별 언급 수, 감성 비율, 가중 점수 |
-| 🚀 급상승 랭킹 | `page_surge_ranking` | 기간별 언급량 변화 (3일/7일/30일) |
+| 📈 커뮤니티 개요 | `page_overview` | KPI, 감성 추이 차트, TOP 10 종목 |
+| 📊 언급량 랭킹 | `page_mention_ranking` | 종목별 언급 수, 감성 비율, 가중 점수 (기간탭) |
+| 🚀 급상승 랭킹 | `page_surge_ranking` | 전기 대비 언급량 변화 (일간/주간/월간/연간) |
 | 👤 작성자 랭킹 | `page_author_ranking` | 활발한 작성자 순위 |
-| 📋 게시글 목록 | `page_post_list` | 커뮤니티 컬럼, 제목 검색, 종목 필터, DB 페이징 |
+| 📋 게시글 목록 | `page_post_list` | 커뮤니티 필터, 제목 검색, 종목 필터, DB 페이징 |
 
-### 🔬 전문가 (증권사 리포트) — `lib/expert.py`
+### 🔬 리포트 (증권사 리포트) — `lib/report.py`
 
 | 페이지 | 함수 | 설명 |
 |--------|------|------|
-| 📈 전문가 개요 | `page_overview` | KPI, TOP 10 커버 종목, 증권사별 리포트 수 |
-| 📊 리포트 랭킹 | `page_report_ranking` | 종목별 리포트 수, Buy/Hold/Sell 분포 |
+| 📈 리포트 개요 | `page_overview` | KPI, 투자의견 추이, TOP 10 커버 종목 |
+| 📊 리포트 랭킹 | `page_report_ranking` | 종목별 리포트 수, Buy/Hold/Sell 분포 (기간탭) |
+| 🚀 리포트 급상승 | `page_surge_ranking` | 전기 대비 리포트 언급 변화 |
 | 📋 리포트 목록 | `page_report_list` | 증권사 필터, 제목 검색, DB 페이징 |
 
-### 📊 종합 (교차 분석) — `lib/combined.py`
+### 📰 뉴스 (Google News) — `lib/news.py`
 
 | 페이지 | 함수 | 설명 |
 |--------|------|------|
-| 🏠 종합 대시보드 | `page_dashboard` | 커뮤니티 vs 전문가 감성 비교, 감성 괴리 분석 |
-| 🔍 종목 검색 | `page_ticker_search` | 종목별 커뮤니티 추이 + 전문가 리포트 요약 |
+| 📈 뉴스 개요 | `page_overview` | KPI, 감성 추이 차트, TOP 10 종목 |
+| 📊 뉴스 언급량 랭킹 | `page_mention_ranking` | 종목별 언급 수, 감성 비율 (기간탭) |
+| 🚀 뉴스 급상승 | `page_surge_ranking` | 전기 대비 뉴스 언급 변화 |
+| 📋 뉴스 목록 | `page_article_list` | 제목 검색, DB 페이징 |
+
+### 🛠️ 공통 컴포넌트 — `lib/shared.py`
+
+| 함수/상수 | 설명 |
+|-----------|------|
+| `run_query()` | DB 쿼리 → DataFrame (자동 재연결) |
+| `paginated_dataframe()` | 25건 페이지네이션 테이블 |
+| `period_tabs()` | 일간/주간/월간/연간 탭 UI |
+| `render_top10_chart()` | TOP 10 수평 바 차트 (Altair) |
+| `render_colored_line_chart()` | 감성 색상 적용 라인 차트 (긍정=🔵, 부정=🔴, 중립=⚪) |
+| `render_surge_page()` | 급상승 랭킹 페이지 공통 로직 |
 
 ---
 
