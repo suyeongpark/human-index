@@ -21,7 +21,7 @@ COMMUNITIES = [
         "name": "MLB Park 불펜",
         "base_url": "https://mlbpark.donga.com/mp/b.php?b=bullpen",
         "category": "주식",
-        "crawl_url": "https://mlbpark.donga.com/mp/b.php?search_select=stt&search_input=주식&b=bullpen&p=",
+        "crawl_url": "https://mlbpark.donga.com/mp/b.php?select=sct&m=search&b=bullpen&select=spf&query=%EC%A3%BC%EC%8B%9D&p=",
         "posts_per_page": 30,
         "max_pages": 100,
         "parser": "mlbpark",
