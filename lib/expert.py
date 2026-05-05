@@ -136,7 +136,9 @@ def page_mention_ranking(start_date, end_date):
         FROM expert_article_mentions eam
         JOIN tickers t ON t.id = eam.ticker_id
         JOIN expert_articles ea ON ea.id = eam.article_id
+        JOIN expert_sources es ON es.id = ea.source_id
         WHERE ea.published_date BETWEEN %s AND %s
+          AND es.source_type = 'article'
         GROUP BY t.symbol, t.name, t.market
         ORDER BY "⭐ 가중 점수" DESC
     """, (SCORE_WEIGHT_POSITIVE, SCORE_WEIGHT_NEGATIVE, SCORE_WEIGHT_NEUTRAL,
