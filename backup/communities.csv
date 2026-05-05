@@ -1,6 +1,0 @@
-id,name,base_url,category,is_active,created_at
-2,MLBPark 불펜,https://mlbpark.donga.com/mp/b.php,주식,True,2026-05-03 11:12:15.949294+00:00
-3,클리앙 투자,https://www.clien.net/service/board/cm_stock,주식,True,2026-05-04 12:30:26.106224+00:00
-4,에펨코리아 주식,https://www.fmkorea.com/stock,주식,True,2026-05-04 12:31:17.731161+00:00
-5,에펨코리아 국내주식,https://www.fmkorea.com/stock,주식,True,2026-05-05 06:23:57.701033+00:00
-6,에펨코리아 해외주식,https://www.fmkorea.com/stock,주식,True,2026-05-05 06:24:05.265390+00:00
