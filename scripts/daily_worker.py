@@ -37,10 +37,10 @@ log = logging.getLogger("worker")
 
 # ─── 설정 ──────────────────────────────────────────────
 from db_config import DB_CONFIG
-from crawler_config import (
-    HEADERS, REQUEST_DELAY, COMMUNITIES,
-    EXTRA_ALIASES, MULTI_ALIASES, SKIP_NAMES,
-    POSITIVE_WORDS, NEGATIVE_WORDS,
+from crawler_config import HEADERS, COMMUNITIES
+from data_loader import (
+    load_aliases, load_multi_aliases, load_skip_names,
+    load_sentiment_words,
 )
 
 
@@ -315,7 +315,7 @@ def crawl_community(cur, community: dict) -> int:
         else:
             consecutive_dup_pages = 0
 
-        time.sleep(REQUEST_DELAY)
+        time.sleep(1)  # 크롤링 딜레이 (초)
 
     return total_inserted
 
@@ -324,10 +324,12 @@ def crawl_community(cur, community: dict) -> int:
 # STEP 2: 종목 추출 + 감성 분석
 # ═══════════════════════════════════════════════════════
 
+_POSITIVE_WORDS, _NEGATIVE_WORDS = load_sentiment_words()
+
 def analyze_sentiment(title: str) -> int:
     """제목 기반 감성 분석"""
-    pos = sum(1 for w in POSITIVE_WORDS if w in title)
-    neg = sum(1 for w in NEGATIVE_WORDS if w in title)
+    pos = sum(1 for w in _POSITIVE_WORDS if w in title)
+    neg = sum(1 for w in _NEGATIVE_WORDS if w in title)
     if pos > neg:
         return 1
     elif neg > pos:
@@ -340,6 +342,10 @@ def build_ticker_map(cur) -> dict:
     모든 키는 upper()로 저장하여 대소문자 무시 매칭 (한글은 영향 없음)
     Returns: {keyword_upper: [(ticker_id, symbol), ...]} - 긴 키워드 우선
     """
+    extra_aliases = load_aliases()
+    multi_aliases = load_multi_aliases()
+    skip_names = load_skip_names()
+
     ticker_map = {}  # keyword_upper → [(ticker_id, symbol), ...]
 
     # 1) DB에서 모든 종목 로드
@@ -352,21 +358,21 @@ def build_ticker_map(cur) -> dict:
 
         # KRX 종목: name으로 매칭
         if market in ("KOSPI", "KOSDAQ"):
-            if name and len(name) >= 2 and name.upper() not in SKIP_NAMES:
+            if name and len(name) >= 2 and name.upper() not in skip_names:
                 ticker_map[name.upper()] = [(ticker_id, symbol)]
 
         # US 종목: 3글자 이상 심볼만
         elif market in ("US", "NASDAQ", "NYSE"):
-            if len(symbol) >= 3 and symbol not in SKIP_NAMES:
+            if len(symbol) >= 3 and symbol not in skip_names:
                 ticker_map[symbol.upper()] = [(ticker_id, symbol)]
 
     # 2) 수동 한글 별칭 추가 (1:1)
-    for alias, symbol in EXTRA_ALIASES.items():
-        if symbol in symbol_to_id and alias.upper() not in SKIP_NAMES:
+    for alias, symbol in extra_aliases.items():
+        if symbol in symbol_to_id and alias.upper() not in skip_names:
             ticker_map[alias.upper()] = [(symbol_to_id[symbol], symbol)]
 
     # 3) 복수 종목 별칭 추가 (1:N)
-    for alias, symbols in MULTI_ALIASES.items():
+    for alias, symbols in multi_aliases.items():
         pairs = [(symbol_to_id[s], s) for s in symbols if s in symbol_to_id]
         if pairs:
             ticker_map[alias.upper()] = pairs
