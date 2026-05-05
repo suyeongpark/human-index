@@ -10,7 +10,8 @@
 |--------|------|-----------|
 | **Streamlit Cloud** | 대시보드 | [human-index.streamlit.app](https://human-index-fbsfdag8sk7hcpfedhrm9h.streamlit.app/) |
 | **Supabase** | PostgreSQL DB | 서울 리전, Session Pooler 사용 |
-| **GitHub Actions** | 크롤러 자동화 | Repository secrets로 DB 접속 |
+| **GitHub Actions** | 리포트/뉴스 크롤러 | Repository secrets로 DB 접속 |
+| **macOS launchd** | 커뮤니티 크롤러 | 로컬 Mac Mini에서 30분마다 실행 |
 
 ---
 
@@ -32,9 +33,10 @@ Settings → Secrets and variables → Actions → **Repository secrets**:
 
 | 파일 | cron (UTC) | 한국시간 |
 |------|-----------|---------|
-| `.github/workflows/crawl-community.yml` | `0 * * * *` | 매 정시 |
 | `.github/workflows/crawl-hankyung.yml` | `30 9 * * 1-5` | 평일 18:30 |
 | `.github/workflows/crawl-google-news.yml` | `0 0,6,12,18 * * *` | 09/15/21/03시 |
+
+> 커뮤니티 크롤러(`crawl-community.yml`)는 GitHub Actions cron 지연(수십분~수시간) 문제와 에펨코리아 IP 차단 이슈로 **로컬 launchd로 전환**했습니다.
 
 ### 수동 실행
 
@@ -67,29 +69,31 @@ DB_PASSWORD = "your-password"
 
 ## 로컬 크롤링 (macOS launchd)
 
-> 에펨코리아는 GitHub Actions IP(미국 데이터센터)를 차단하여 **로컬에서만 크롤링 가능**합니다.
+> 커뮤니티 크롤러는 로컬 Mac Mini에서 실행합니다.
+> - GitHub Actions cron은 무료 플랜에서 수십분~수시간 지연이 발생하여 정확한 주기 실행이 불가
+> - 에펨코리아는 GitHub Actions IP(미국 데이터센터)를 차단하여 로컬에서만 크롤링 가능
 
 ### plist 파일
 
 ```
 ~/Library/LaunchAgents/
-└── com.humanindex.fmkorea-crawler.plist   # 에펨코리아 (30분, 필수)
+└── com.humanindex.community-crawler.plist  # 전체 커뮤니티 (30분)
 ```
 
 ### 관리 명령어
 
 ```bash
 # 등록
-launchctl load ~/Library/LaunchAgents/com.humanindex.fmkorea-crawler.plist
+launchctl load ~/Library/LaunchAgents/com.humanindex.community-crawler.plist
 
 # 해제
-launchctl unload ~/Library/LaunchAgents/com.humanindex.fmkorea-crawler.plist
+launchctl unload ~/Library/LaunchAgents/com.humanindex.community-crawler.plist
 
 # 상태 확인
 launchctl list | grep humanindex
 
 # 로그 확인
-tail -f ~/Dev/Suyeongpark/human-index/logs/fmkorea_launchd.log
+tail -f ~/Dev/Suyeongpark/human-index/logs/community_launchd.log
 ```
 
 ### 시스템 잠자기 비활성화
@@ -123,7 +127,7 @@ sudo pmset -c sleep 0
 
 | 서비스 | 무료 한도 | 월 예상 사용량 |
 |--------|----------|-------------|
-| **GitHub Actions** | 2,000분/월 | ~780분 |
+| **GitHub Actions** | 2,000분/월 | ~120분 (리포트+뉴스만) |
 | **Supabase** | DB 500MB, API 무제한 | ~50MB |
 | **Streamlit Cloud** | 앱 1개, 1GB RAM | 충분 |
 

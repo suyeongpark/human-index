@@ -16,16 +16,19 @@
 | 대시보드 | Python + Streamlit → Streamlit Cloud |
 | DB | PostgreSQL → Supabase |
 | 크롤링 | Python (requests + BeautifulSoup + RSS) |
-| 스케줄링 | GitHub Actions + macOS launchd |
+| 스케줄링 | macOS launchd (커뮤니티) + GitHub Actions (리포트/뉴스) |
 
 ## 데이터 소스
 
 | 소스 | 유형 | 실행 환경 | 주기 |
 |------|------|----------|------|
-| MLBPark 불펜 / 클리앙 투자 | 커뮤니티 | GitHub Actions | 1시간 |
+| MLBPark 불펜 | 커뮤니티 | 로컬 launchd | 30분 |
+| 클리앙 투자 | 커뮤니티 | 로컬 launchd | 30분 |
 | 에펨코리아 국내주식 / 해외주식 | 커뮤니티 | 로컬 launchd | 30분 |
 | 한경 컨센서스 | 증권사 리포트 | GitHub Actions | 평일 1회 |
 | Google News RSS | 뉴스 기사 | GitHub Actions | 6시간 |
+
+> 커뮤니티 크롤러는 GitHub Actions cron 지연(수십분~수시간) 문제와 에펨코리아 IP 차단 이슈로 로컬에서 실행합니다.
 
 ---
 

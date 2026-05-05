@@ -6,26 +6,31 @@
 
 ```
 ┌─────────────────────┐       ┌─────────────────┐       ┌─────────────────────┐
-│  GitHub Actions      │       │  Supabase        │       │ Streamlit Cloud     │
-│  (스케줄 크롤러)      │INSERT  │  (PostgreSQL)    │SELECT  │  (대시보드)           │
+│  로컬 Mac Mini        │       │  Supabase        │       │ Streamlit Cloud     │
+│  (커뮤니티 크롤러)     │       │  (PostgreSQL)    │       │  (대시보드)           │
 │                     ├───────→│                 │←──────┤                     │
-│ daily_worker.py     │       │  posts           │       │  app.py             │
-│ crawl_hankyung.py   │       │  expert_articles │       │  lib/*.py           │
-│ crawl_google_news.py│       │  tickers         │       │  static/style.css   │
-│                     │       │  *_mentions      │       │                     │
+│ daily_worker.py     │INSERT  │  posts           │SELECT  │  app.py             │
+│                     │       │  *_mentions      │       │  lib/*.py           │
 └─────────────────────┘       └─────────────────┘       └─────────────────────┘
-   24/7 자동 실행                  클라우드 DB                human-index.
-                                                          streamlit.app
+┌─────────────────────┐
+│  GitHub Actions      │
+│  (리포트/뉴스 크롤러)  │INSERT
+│                     ├───────→ Supabase
+│ crawl_hankyung.py   │
+│ crawl_google_news.py│
+└─────────────────────┘
+   리포트: 평일 1회          클라우드 DB                human-index.
+   뉴스: 6시간마다                                       streamlit.app
 ```
 
 ### 서비스 흐름
 
 ```mermaid
 flowchart LR
-    subgraph 수집["데이터 수집 (GitHub Actions)"]
-        A1[MLBPark / 클리앙 / 에펨코리아] -->|daily_worker.py| DB[(PostgreSQL)]
-        A2[한경 컨센서스] -->|crawl_hankyung.py| DB
-        A3[Google News RSS] -->|crawl_google_news.py| DB
+    subgraph 수집["데이터 수집"]
+        A1[MLBPark / 클리앙 / 에펨코리아] -->|"로컬 launchd<br>daily_worker.py"| DB[(PostgreSQL)]
+        A2[한경 컨센서스] -->|"GitHub Actions<br>crawl_hankyung.py"| DB
+        A3[Google News RSS] -->|"GitHub Actions<br>crawl_google_news.py"| DB
     end
 
     subgraph 처리["종목 추출 & 감성 분석"]
@@ -41,7 +46,7 @@ flowchart LR
     end
 ```
 
-1. **수집**: GitHub Actions가 주기적으로 크롤러를 실행하여 게시글/리포트/뉴스 **제목**을 수집 → DB 저장
+1. **수집**: 로컬 launchd(커뮤니티) + GitHub Actions(리포트/뉴스)가 크롤러를 실행하여 게시글/리포트/뉴스 **제목**을 수집 → DB 저장
 2. **처리**: 제목에서 종목(ticker)을 자동 추출하고, 키워드 기반 긍정/부정/중립 감성 판정
 3. **분석**: Streamlit 대시보드에서 언급량 랭킹, 급상승 감지, 채널별 교차 분석 제공
 
@@ -54,7 +59,7 @@ flowchart LR
 | 대시보드 | Python + Streamlit → Streamlit Cloud |
 | 데이터베이스 | PostgreSQL → Supabase (서울 리전) |
 | 크롤링 | Python (requests + BeautifulSoup + RSS XML) |
-| 스케줄링 | GitHub Actions (주력) + macOS launchd (백업) |
+| 스케줄링 | macOS launchd (커뮤니티) + GitHub Actions (리포트/뉴스) |
 | 스타일 | CSS 외부 파일 (`static/style.css`) |
 | 분석 | Google Analytics (GA4) |
 
@@ -92,8 +97,7 @@ human-index/
 │   ├── fix_clien_dates.py              # 클리앙 날짜 보정 (일회성)
 │   └── recrawl_bulk.py                 # 벌크 재수집 (일회성)
 │
-├── .github/workflows/                  # GitHub Actions
-│   ├── crawl-community.yml             # 매 1시간
+├── .github/workflows/                  # GitHub Actions (리포트/뉴스만)
 │   ├── crawl-hankyung.yml              # 평일 18:30 (KST)
 │   └── crawl-google-news.yml           # 6시간마다
 │
@@ -189,14 +193,14 @@ def page_overview(start_date, end_date):
 
 | 소스 | 유형 | 크롤러 | 실행 환경 | 주기 |
 |------|------|--------|----------|------|
-| MLBPark 불펜 (주식) | 커뮤니티 | `daily_worker.py` | GitHub Actions | 1시간 |
-| 클리앙 투자게시판 | 커뮤니티 | `daily_worker.py` | GitHub Actions | 1시간 |
-| 에펨코리아 국내주식 | 커뮤니티 | `daily_worker.py --community fmkorea` | 로컬 launchd | 30분 |
-| 에펨코리아 해외주식 | 커뮤니티 | `daily_worker.py --community fmkorea` | 로컬 launchd | 30분 |
+| MLBPark 불펜 (주식) | 커뮤니티 | `daily_worker.py` | 로컬 launchd | 30분 |
+| 클리앙 투자게시판 | 커뮤니티 | `daily_worker.py` | 로컬 launchd | 30분 |
+| 에펨코리아 국내주식 | 커뮤니티 | `daily_worker.py` | 로컬 launchd | 30분 |
+| 에펨코리아 해외주식 | 커뮤니티 | `daily_worker.py` | 로컬 launchd | 30분 |
 | 한경 컨센서스 | 증권사 리포트 | `crawl_hankyung.py` | GitHub Actions | 평일 1회 |
 | Google News RSS | 뉴스 기사 | `crawl_google_news.py` | GitHub Actions | 6시간 |
 
-> 에펨코리아는 GitHub Actions IP(미국 데이터센터)를 차단하여 로컬에서만 크롤링 가능합니다.
+> 커뮤니티 크롤러는 GitHub Actions cron 지연(수십분~수시간) 문제와 에펨코리아 IP 차단 이슈로 로컬에서 실행합니다.
 
 ### 커뮤니티 파이프라인 (`daily_worker.py`)
 
