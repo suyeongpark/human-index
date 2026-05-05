@@ -9,18 +9,34 @@ from lib.shared import run_query, paginated_dataframe
 def page_dashboard(start_date, end_date):
     """🏠 종합 대시보드"""
     st.title("🏠 종합 대시보드")
-    st.caption("대중 의견(커뮤니티) vs 전문가 의견(증권사 리포트) 교차 분석")
+    st.caption("커뮤니티 · 전문가 · 뉴스 교차 분석")
+
+    # 날짜 범위
+    from lib.shared import PERIOD_OPTIONS, PERIOD_DAYS
+    from datetime import timedelta
+
+    period = st.selectbox("📅 집계 기간", PERIOD_OPTIONS, key="combined_period")
+    days = PERIOD_DAYS[period]
+    period_start = max(start_date, end_date - timedelta(days=days))
 
     # KPI
     kpi_all = run_query("""
         SELECT
             (SELECT COUNT(*) FROM posts WHERE post_date BETWEEN %s AND %s) as comm_posts,
-            (SELECT COUNT(*) FROM expert_articles WHERE published_date BETWEEN %s AND %s) as expert_reports
-    """, (start_date, end_date, start_date, end_date))
+            (SELECT COUNT(*) FROM expert_articles ea
+             JOIN expert_sources es ON es.id = ea.source_id
+             WHERE ea.published_date BETWEEN %s AND %s AND es.source_type = 'report') as expert_reports,
+            (SELECT COUNT(*) FROM expert_articles ea
+             JOIN expert_sources es ON es.id = ea.source_id
+             WHERE ea.published_date BETWEEN %s AND %s AND es.source_type = 'article') as news_articles
+    """, (period_start, end_date, period_start, end_date, period_start, end_date))
 
-    c1, c2 = st.columns(2)
+    c1, c2, c3 = st.columns(3)
     c1.metric("📢 커뮤니티 게시글", f"{kpi_all['comm_posts'].iloc[0]:,}")
     c2.metric("🔬 전문가 리포트", f"{kpi_all['expert_reports'].iloc[0]:,}")
+    c3.metric("📰 뉴스 기사", f"{kpi_all['news_articles'].iloc[0]:,}")
+
+    st.markdown("---")
 
     # 종목별 교차 분석
     st.subheader("🔀 종목별 비교")
@@ -64,34 +80,71 @@ def page_dashboard(start_date, end_date):
         WHERE t.market NOT IN ('THEME', 'CRYPTO')
         ORDER BY COALESCE(c.comm_cnt, 0) + COALESCE(e.expert_cnt, 0) + COALESCE(n.news_cnt, 0) DESC
         LIMIT 30
-    """, (start_date, end_date, start_date, end_date, start_date, end_date))
+    """, (period_start, end_date, period_start, end_date, period_start, end_date))
 
     if not cross.empty:
         paginated_dataframe(cross, "pg_cross_analysis")
 
     st.markdown("---")
 
-    # 전문가만 커버하고 커뮤니티에서 안 보이는 종목
-    st.subheader("🔍 전문가 Only (커뮤니티 미언급)")
-    expert_only = run_query("""
-        SELECT t.name as "종목", COUNT(*) as "리포트 수",
-               STRING_AGG(DISTINCT ea.securities_firm, ', ') as "커버 증권사"
-        FROM expert_article_mentions eam
-        JOIN tickers t ON t.id = eam.ticker_id
-        JOIN expert_articles ea ON ea.id = eam.article_id
-        WHERE ea.published_date BETWEEN %s AND %s
-          AND eam.ticker_id NOT IN (
-              SELECT DISTINCT pm.ticker_id FROM post_mentions pm
-              JOIN posts p ON p.id = pm.post_id
-              WHERE p.post_date BETWEEN %s AND %s
-          )
-        GROUP BY t.name ORDER BY COUNT(*) DESC LIMIT 15
-    """, (start_date, end_date, start_date, end_date))
+    # TOP 10 차트 3개
+    import altair as alt
 
-    if not expert_only.empty:
-        paginated_dataframe(expert_only, "pg_expert_only")
-    else:
-        st.info("모든 전문가 종목이 커뮤니티에서도 언급되고 있습니다.")
+    st.subheader("🔥 채널별 TOP 10 종목")
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        st.markdown("**📢 커뮤니티**")
+        comm_top = run_query("""
+            SELECT t.name as "종목", COUNT(*) as "언급 수"
+            FROM post_mentions pm
+            JOIN tickers t ON t.id = pm.ticker_id
+            JOIN posts p ON p.id = pm.post_id
+            WHERE p.post_date BETWEEN %s AND %s AND t.market NOT IN ('THEME', 'CRYPTO')
+            GROUP BY t.name ORDER BY COUNT(*) DESC LIMIT 10
+        """, (period_start, end_date))
+        if not comm_top.empty:
+            chart = alt.Chart(comm_top).mark_bar().encode(
+                x=alt.X("언급 수:Q"),
+                y=alt.Y("종목:N", sort="-x"),
+            ).properties(height=300)
+            st.altair_chart(chart, use_container_width=True)
+
+    with col2:
+        st.markdown("**🔬 전문가**")
+        expert_top = run_query("""
+            SELECT t.name as "종목", COUNT(*) as "언급 수"
+            FROM expert_article_mentions eam
+            JOIN tickers t ON t.id = eam.ticker_id
+            JOIN expert_articles ea ON ea.id = eam.article_id
+            JOIN expert_sources es ON es.id = ea.source_id
+            WHERE ea.published_date BETWEEN %s AND %s AND es.source_type = 'report'
+            GROUP BY t.name ORDER BY COUNT(*) DESC LIMIT 10
+        """, (period_start, end_date))
+        if not expert_top.empty:
+            chart = alt.Chart(expert_top).mark_bar().encode(
+                x=alt.X("언급 수:Q"),
+                y=alt.Y("종목:N", sort="-x"),
+            ).properties(height=300)
+            st.altair_chart(chart, use_container_width=True)
+
+    with col3:
+        st.markdown("**📰 뉴스**")
+        news_top = run_query("""
+            SELECT t.name as "종목", COUNT(*) as "언급 수"
+            FROM expert_article_mentions eam
+            JOIN tickers t ON t.id = eam.ticker_id
+            JOIN expert_articles ea ON ea.id = eam.article_id
+            JOIN expert_sources es ON es.id = ea.source_id
+            WHERE ea.published_date BETWEEN %s AND %s AND es.source_type = 'article'
+            GROUP BY t.name ORDER BY COUNT(*) DESC LIMIT 10
+        """, (period_start, end_date))
+        if not news_top.empty:
+            chart = alt.Chart(news_top).mark_bar().encode(
+                x=alt.X("언급 수:Q"),
+                y=alt.Y("종목:N", sort="-x"),
+            ).properties(height=300)
+            st.altair_chart(chart, use_container_width=True)
 
 
 def page_ticker_search(start_date, end_date):
