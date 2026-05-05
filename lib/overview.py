@@ -15,7 +15,36 @@ SQL_KPI = """
          WHERE ea.published_date BETWEEN %s AND %s AND es.source_type = 'report') as expert_reports,
         (SELECT COUNT(*) FROM expert_articles ea
          JOIN expert_sources es ON es.id = ea.source_id
-         WHERE ea.published_date BETWEEN %s AND %s AND es.source_type = 'article') as news_articles
+         WHERE ea.published_date BETWEEN %s AND %s AND es.source_type = 'article') as news_articles,
+        -- 커뮤니티 긍정/부정률
+        (SELECT ROUND(100.0 * COUNT(*) FILTER (WHERE pm.sentiment = 1) / NULLIF(COUNT(*), 0), 1)
+         FROM post_mentions pm JOIN posts p ON p.id = pm.post_id
+         WHERE p.post_date BETWEEN %s AND %s) as comm_pos_rate,
+        (SELECT ROUND(100.0 * COUNT(*) FILTER (WHERE pm.sentiment = -1) / NULLIF(COUNT(*), 0), 1)
+         FROM post_mentions pm JOIN posts p ON p.id = pm.post_id
+         WHERE p.post_date BETWEEN %s AND %s) as comm_neg_rate,
+        -- 리포트 Buy/Hold률
+        (SELECT ROUND(100.0 * COUNT(*) FILTER (WHERE eam.sentiment = 1) / NULLIF(COUNT(*), 0), 1)
+         FROM expert_article_mentions eam
+         JOIN expert_articles ea ON ea.id = eam.article_id
+         JOIN expert_sources es ON es.id = ea.source_id
+         WHERE ea.published_date BETWEEN %s AND %s AND es.source_type = 'report') as rpt_buy_rate,
+        (SELECT ROUND(100.0 * COUNT(*) FILTER (WHERE eam.sentiment = 0) / NULLIF(COUNT(*), 0), 1)
+         FROM expert_article_mentions eam
+         JOIN expert_articles ea ON ea.id = eam.article_id
+         JOIN expert_sources es ON es.id = ea.source_id
+         WHERE ea.published_date BETWEEN %s AND %s AND es.source_type = 'report') as rpt_hold_rate,
+        -- 뉴스 긍정/부정률
+        (SELECT ROUND(100.0 * COUNT(*) FILTER (WHERE eam.sentiment = 1) / NULLIF(COUNT(*), 0), 1)
+         FROM expert_article_mentions eam
+         JOIN expert_articles ea ON ea.id = eam.article_id
+         JOIN expert_sources es ON es.id = ea.source_id
+         WHERE ea.published_date BETWEEN %s AND %s AND es.source_type = 'article') as news_pos_rate,
+        (SELECT ROUND(100.0 * COUNT(*) FILTER (WHERE eam.sentiment = -1) / NULLIF(COUNT(*), 0), 1)
+         FROM expert_article_mentions eam
+         JOIN expert_articles ea ON ea.id = eam.article_id
+         JOIN expert_sources es ON es.id = ea.source_id
+         WHERE ea.published_date BETWEEN %s AND %s AND es.source_type = 'article') as news_neg_rate
 """
 
 SQL_CROSS_ANALYSIS = """
@@ -180,12 +209,22 @@ def page_dashboard(start_date, end_date):
     period_start = max(start_date, end_date - timedelta(days=days))
 
     # KPI
-    kpi_all = run_query(SQL_KPI, (period_start, end_date, period_start, end_date, period_start, end_date))
+    kpi_all = run_query(SQL_KPI, (period_start, end_date) * 10)
 
+    # 1행: 3개 커럼 (2span)
     c1, c2, c3 = st.columns(3)
     c1.metric("📢 커뮤니티 게시글", f"{kpi_all['comm_posts'].iloc[0]:,}")
     c2.metric("🔬 전문가 리포트", f"{kpi_all['expert_reports'].iloc[0]:,}")
     c3.metric("📰 뉴스 기사", f"{kpi_all['news_articles'].iloc[0]:,}")
+
+    # 2행: 6개 커럼
+    c1, c2, c3, c4, c5, c6 = st.columns(6)
+    c1.metric("👍 긍정률", f"{kpi_all['comm_pos_rate'].iloc[0] or 0}%")
+    c2.metric("👎 부정률", f"{kpi_all['comm_neg_rate'].iloc[0] or 0}%")
+    c3.metric("📈 Buy", f"{kpi_all['rpt_buy_rate'].iloc[0] or 0}%")
+    c4.metric("⚖️ Hold", f"{kpi_all['rpt_hold_rate'].iloc[0] or 0}%")
+    c5.metric("👍 긍정률", f"{kpi_all['news_pos_rate'].iloc[0] or 0}%")
+    c6.metric("👎 부정률", f"{kpi_all['news_neg_rate'].iloc[0] or 0}%")
 
     # 종목별 교차 분석
     st.subheader("🔀 종목별 비교")
