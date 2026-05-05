@@ -154,6 +154,58 @@ def save_articles(cur, source_id: int, articles: list[dict]) -> int:
 
 
 # ═══════════════════════════════════════════════════════
+# 종목 추출 + 감성 분석
+# ═══════════════════════════════════════════════════════
+
+def extract_tickers_for_articles(cur) -> int:
+    """미분석 뉴스 기사에서 종목 추출 + 감성 분석 (daily_worker 로직 재사용)"""
+    from daily_worker import build_ticker_map, analyze_sentiment
+
+    ticker_map = build_ticker_map(cur)
+    sorted_keywords = sorted(ticker_map.keys(), key=len, reverse=True)
+
+    cur.execute("""
+        SELECT ea.id, ea.title
+        FROM expert_articles ea
+        JOIN expert_sources es ON es.id = ea.source_id
+        LEFT JOIN expert_article_mentions eam ON eam.article_id = ea.id
+        WHERE es.source_type = 'article' AND eam.id IS NULL
+        ORDER BY ea.id
+    """)
+    unanalyzed = cur.fetchall()
+
+    if not unanalyzed:
+        log.info("  분석할 새 기사 없음")
+        return 0
+
+    total_mentions = 0
+    for article_id, title in unanalyzed:
+        found_tickers = set()
+        remaining = title
+
+        for keyword in sorted_keywords:
+            if keyword in remaining:
+                ticker_id, symbol = ticker_map[keyword]
+                if ticker_id not in found_tickers:
+                    found_tickers.add(ticker_id)
+                    sentiment = analyze_sentiment(title)
+                    try:
+                        cur.execute("""
+                            INSERT INTO expert_article_mentions
+                                (article_id, ticker_id, sentiment)
+                            VALUES (%s, %s, %s)
+                            ON CONFLICT (article_id, ticker_id) DO NOTHING
+                        """, (article_id, ticker_id, sentiment))
+                        if cur.rowcount > 0:
+                            total_mentions += 1
+                    except Exception:
+                        pass
+                remaining = remaining.replace(keyword, "", 1)
+
+    return total_mentions
+
+
+# ═══════════════════════════════════════════════════════
 # MAIN
 # ═══════════════════════════════════════════════════════
 
@@ -186,7 +238,13 @@ def main():
 
             conn.commit()
 
-        log.info(f"\n✅ 완료: 총 {total_inserted}건 신규 저장")
+        log.info(f"\n✅ 수집 완료: 총 {total_inserted}건 신규 저장")
+
+        # 종목 추출 + 감성 분석
+        log.info("\n🔍 종목 추출 + 감성 분석 시작...")
+        mentions = extract_tickers_for_articles(cur)
+        conn.commit()
+        log.info(f"✅ 분석 완료: {mentions}건 종목 언급 추출")
 
     except Exception as e:
         conn.rollback()
