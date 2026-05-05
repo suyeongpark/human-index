@@ -92,6 +92,58 @@ def page_overview(start_date, end_date):
         st.altair_chart(chart, use_container_width=True)
 
 
+def page_surge_ranking(start_date, end_date):
+    """🚀 급상승 랭킹"""
+    st.title("🚀 뉴스 급상승 종목")
+
+    from datetime import timedelta
+    period = period_tabs("news_surge_period")
+    days = PERIOD_DAYS[period]
+
+    recent_end = end_date
+    recent_start = end_date - timedelta(days=days - 1)
+    prev_end = recent_start - timedelta(days=1)
+    prev_start = prev_end - timedelta(days=days - 1)
+
+    st.caption(f"최근: {recent_start} ~ {recent_end}  vs  이전: {prev_start} ~ {prev_end}")
+
+    surge = run_query("""
+        WITH recent AS (
+            SELECT eam.ticker_id, COUNT(*) as cnt
+            FROM expert_article_mentions eam
+            JOIN expert_articles ea ON ea.id = eam.article_id
+            JOIN expert_sources es ON es.id = ea.source_id
+            WHERE ea.published_date BETWEEN %s AND %s AND es.source_type = 'article'
+            GROUP BY eam.ticker_id
+        ),
+        prev AS (
+            SELECT eam.ticker_id, COUNT(*) as cnt
+            FROM expert_article_mentions eam
+            JOIN expert_articles ea ON ea.id = eam.article_id
+            JOIN expert_sources es ON es.id = ea.source_id
+            WHERE ea.published_date BETWEEN %s AND %s AND es.source_type = 'article'
+            GROUP BY eam.ticker_id
+        )
+        SELECT t.name as "종목",
+               COALESCE(r.cnt, 0) as "최근",
+               COALESCE(p.cnt, 0) as "이전",
+               COALESCE(r.cnt, 0) - COALESCE(p.cnt, 0) as "변화량",
+               CASE WHEN COALESCE(p.cnt, 0) > 0
+                    THEN ROUND(100.0 * (COALESCE(r.cnt,0) - p.cnt) / p.cnt, 1)
+                    ELSE NULL END as "변화율(%%)"
+        FROM recent r
+        FULL OUTER JOIN prev p ON r.ticker_id = p.ticker_id
+        JOIN tickers t ON t.id = COALESCE(r.ticker_id, p.ticker_id)
+        WHERE t.market NOT IN ('THEME', 'CRYPTO')
+        ORDER BY COALESCE(r.cnt, 0) - COALESCE(p.cnt, 0) DESC
+    """, (recent_start, recent_end, prev_start, prev_end))
+
+    if not surge.empty:
+        paginated_dataframe(surge, "pg_news_surge")
+    else:
+        st.info("비교할 데이터가 부족합니다.")
+
+
 def page_mention_ranking(start_date, end_date):
     """📊 기사 언급량 랭킹"""
     st.title("📊 기사 언급량 랭킹")
