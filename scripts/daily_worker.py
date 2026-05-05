@@ -168,40 +168,45 @@ def ensure_community(cur, community: dict) -> int:
     return cur.fetchone()[0]
 
 
-def parse_post_date(date_text: str) -> date:
-    """게시글 날짜 파싱 (여러 커뮤니티 형식 대응)"""
+def parse_post_date(date_text: str) -> datetime:
+    """게시글 날짜/시간 파싱 (여러 커뮤니티 형식 대응) → datetime 반환"""
     date_text = date_text.strip()
     if not date_text:
-        return date.today()
+        return datetime.now()
 
-    # "14:30" 같은 시간만 → 오늘
+    # "14:30" 같은 시간만 → 오늘 + 해당 시간
     if ":" in date_text and "-" not in date_text and "." not in date_text:
-        return date.today()
+        try:
+            t = datetime.strptime(date_text, "%H:%M")
+            return datetime.combine(date.today(), t.time())
+        except ValueError:
+            return datetime.now()
 
     # "2026-05-04" (MLB Park)
     try:
-        return datetime.strptime(date_text, "%Y-%m-%d").date()
+        return datetime.strptime(date_text, "%Y-%m-%d")
     except ValueError:
         pass
 
     # "2026-04-12 00:41:38" (클리앙)
     try:
-        return datetime.strptime(date_text, "%Y-%m-%d %H:%M:%S").date()
+        return datetime.strptime(date_text, "%Y-%m-%d %H:%M:%S")
     except ValueError:
         pass
 
-    # "2026.05.04" 또는 "05.04" (일부 커뮤니티)
+    # "2026.05.04" (일부 커뮤니티)
     try:
-        return datetime.strptime(date_text, "%Y.%m.%d").date()
+        return datetime.strptime(date_text, "%Y.%m.%d")
     except ValueError:
         pass
 
+    # "05.04" (에펨코리아 올해)
     try:
-        return datetime.strptime(f"{date.today().year}.{date_text}", "%Y.%m.%d").date()
+        return datetime.strptime(f"{date.today().year}.{date_text}", "%Y.%m.%d")
     except ValueError:
         pass
 
-    return date.today()
+    return datetime.now()
 
 
 
@@ -541,15 +546,15 @@ def update_daily_stats(cur, target_date: date = None) -> int:
             (ticker_id, community_id, stat_date, mention_count,
              positive_count, negative_count, neutral_count)
         SELECT
-            pm.ticker_id, p.community_id, p.post_date,
+            pm.ticker_id, p.community_id, DATE(p.post_date),
             COUNT(*),
             COUNT(*) FILTER (WHERE pm.sentiment = 1),
             COUNT(*) FILTER (WHERE pm.sentiment = -1),
             COUNT(*) FILTER (WHERE pm.sentiment = 0)
         FROM post_mentions pm
         JOIN posts p ON p.id = pm.post_id
-        WHERE p.post_date = %s
-        GROUP BY pm.ticker_id, p.community_id, p.post_date
+        WHERE DATE(p.post_date) = %s
+        GROUP BY pm.ticker_id, p.community_id, DATE(p.post_date)
     """, (target_date,))
     community_stats = cur.rowcount
 
@@ -559,15 +564,15 @@ def update_daily_stats(cur, target_date: date = None) -> int:
             (ticker_id, community_id, stat_date, mention_count,
              positive_count, negative_count, neutral_count)
         SELECT
-            pm.ticker_id, NULL, p.post_date,
+            pm.ticker_id, NULL, DATE(p.post_date),
             COUNT(*),
             COUNT(*) FILTER (WHERE pm.sentiment = 1),
             COUNT(*) FILTER (WHERE pm.sentiment = -1),
             COUNT(*) FILTER (WHERE pm.sentiment = 0)
         FROM post_mentions pm
         JOIN posts p ON p.id = pm.post_id
-        WHERE p.post_date = %s
-        GROUP BY pm.ticker_id, p.post_date
+        WHERE DATE(p.post_date) = %s
+        GROUP BY pm.ticker_id, DATE(p.post_date)
     """, (target_date,))
 
     return community_stats + cur.rowcount

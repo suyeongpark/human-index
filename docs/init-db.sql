@@ -19,7 +19,7 @@ CREATE TABLE posts (
     community_id    INTEGER         NOT NULL REFERENCES communities(id),
     title           TEXT            NOT NULL,
     author          VARCHAR(200),
-    post_date       DATE            NOT NULL,
+    post_date       TIMESTAMP       NOT NULL,
     collected_at    TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
     source_url      VARCHAR(1000)
 );
