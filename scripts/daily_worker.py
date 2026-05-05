@@ -339,7 +339,10 @@ def _build_page_url(community: dict, page: int) -> str:
     base = community["crawl_url"]
 
     if parser == "mlbpark":
-        offset = page * community["posts_per_page"]
+        if page == 0:
+            return base
+        # MLBPark 검색은 1-indexed offset: p=31(2페이지), p=61(3페이지)...
+        offset = page * community["posts_per_page"] + 1
         return f"{base}&p={offset}"
     elif parser == "clien":
         return f"{base}?&po={page}" if page > 0 else base
