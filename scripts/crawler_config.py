@@ -93,16 +93,18 @@ EXTRA_ALIASES = _load_aliases()
 MULTI_ALIASES = _load_multi_aliases()
 
 
-# ─── 오매칭 방지 ────────────────────────────────────────
-# 너무 일반적이거나 짧은 단어는 종목 매칭에서 제외
-SKIP_NAMES = {
-    "한국", "대한", "제일", "동양", "삼성", "대우", "현대", "한화",
-    "서울", "부산", "동아", "세계", "우리", "신한", "아시아",
-    "IT", "AI", "OK", "SK", "LG", "LS", "GS", "KT",
-    # US에서 너무 짧은 심볼
-    "A", "B", "C", "D", "E", "F", "G", "K", "L", "M",
-    "O", "R", "T", "U", "V", "W", "X", "Y", "Z",
-}
+# ─── 오매칭 방지 (CSV) ──────────────────────────────────
+def _load_skip_names() -> set:
+    """skip_names.csv → set"""
+    path = os.path.join(_DATA_DIR, "skip_names.csv")
+    result = set()
+    with open(path, "r", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            result.add(row["name"].strip())
+    return result
+
+SKIP_NAMES = _load_skip_names()
 
 
 # ─── 감성 분석 키워드 (CSV) ──────────────────────────────
