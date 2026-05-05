@@ -56,6 +56,38 @@ def navigate_to(target_page, ticker_symbol=None, search_keyword=None, filter_sym
     st.session_state._pending_nav = True  # radio 동기화 플래그
 
 
+# ─── UI 컴포넌트 헬퍼 ─────────────────────────────────
+
+def page_header(title, caption=None):
+    """페이지 타이틀 + 캡션 + 구분선을 통일된 스타일로 렌더링"""
+    st.title(title)
+    parts = []
+    if caption:
+        parts.append(f'<p class="page-caption">{caption}</p>')
+    parts.append('<hr class="page-divider">')
+    st.markdown("".join(parts), unsafe_allow_html=True)
+
+
+def pagination_bar(page, total_pages, session_key, prefix):
+    """통일된 페이지네이션 바 (‹ 1/N ›)"""
+    _, col_prev, col_info, col_next, _ = st.columns([10, 1, 3, 1, 10])
+    with col_prev:
+        if st.button("‹", disabled=(page == 0), key=f"{prefix}_prev"):
+            st.session_state[session_key] = page - 1
+            st.rerun()
+    with col_info:
+        st.markdown(
+            f'<div class="pagination-info">'
+            f'<strong>{page + 1}</strong> / {total_pages}'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+    with col_next:
+        if st.button("›", disabled=(page >= total_pages - 1), key=f"{prefix}_next"):
+            st.session_state[session_key] = page + 1
+            st.rerun()
+
+
 PAGE_SIZE = 25
 
 
@@ -80,18 +112,7 @@ def paginated_dataframe(df, key, height=700, column_config=None):
         kwargs["column_config"] = column_config
     st.dataframe(page_df, **kwargs)
 
-    # 테이블 아래 가운데 정렬: [이전] [페이지 X/Y] [다음]
-    _, col_prev, col_info, col_next, _ = st.columns([2, 1, 1, 1, 2])
-    with col_prev:
-        if st.button("⬅️ 이전", disabled=(page == 0), key=f"{key}_prev", use_container_width=True):
-            st.session_state[key] = page - 1
-            st.rerun()
-    with col_info:
-        st.markdown(f"<div style='text-align:center;padding:0.4rem 0;color:#888;'>{page + 1} / {total_pages}</div>", unsafe_allow_html=True)
-    with col_next:
-        if st.button("다음 ➡️", disabled=(page >= total_pages - 1), key=f"{key}_next", use_container_width=True):
-            st.session_state[key] = page + 1
-            st.rerun()
+    pagination_bar(page, total_pages, key, key)
 
 
 # ─── 기간별 집계 헬퍼 ──────────────────────────────────
@@ -142,7 +163,7 @@ def render_colored_line_chart(df, date_col=None):
 
     melted = df.melt(id_vars=[idx], value_vars=value_cols, var_name="구분", value_name="건수")
     chart = alt.Chart(melted).mark_line(strokeWidth=2).encode(
-        x=alt.X(f"{idx}:T", title="날짜"),
+        x=alt.X(f"{idx}:T", title=None),
         y=alt.Y("건수:Q"),
         color=alt.Color("구분:N", scale=alt.Scale(domain=value_cols, range=colors), legend=alt.Legend(title=None)),
     ).properties(height=300)
@@ -156,7 +177,7 @@ def render_top10_chart(df, x_label="언급 수", height=350):
     import altair as alt
     chart = alt.Chart(df).mark_bar().encode(
         x=alt.X(f"{x_label}:Q"),
-        y=alt.Y("종목:N", sort="-x"),
+        y=alt.Y("종목:N", sort="-x", title=None),
     ).properties(height=height)
     st.altair_chart(chart, use_container_width=True)
 
@@ -175,7 +196,7 @@ def render_surge_page(title, query_template, period_key, end_date, start_date, p
     """
     from datetime import timedelta
 
-    st.title(title)
+    page_header(title, "전주 대비 언급량 급상승 종목 감지")
     period = period_tabs(period_key)
     days = PERIOD_DAYS[period]
 
@@ -184,7 +205,7 @@ def render_surge_page(title, query_template, period_key, end_date, start_date, p
     prev_end = recent_start - timedelta(days=1)
     prev_start = prev_end - timedelta(days=days - 1)
 
-    st.caption(f"최근: {recent_start} ~ {recent_end}  vs  이전: {prev_start} ~ {prev_end}")
+
 
     surge = run_query(query_template, (recent_start, recent_end, prev_start, prev_end))
 

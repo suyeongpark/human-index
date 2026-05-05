@@ -1,48 +1,16 @@
-# Human Index - 클라우드 배포 가이드
+# Human Index — 배포 가이드
 
 > Supabase + Streamlit Cloud + GitHub Actions로 24/7 무중단 시스템 구축
 
-## 전체 아키텍처
-
-```
-┌─────────────────────┐       ┌─────────────────┐       ┌─────────────────────┐
-│  GitHub Actions      │       │  Supabase (무료)  │       │ Streamlit Cloud(무료)│
-│                     │INSERT  │                 │SELECT  │                     │
-│ daily_worker.py     ├───────→│  PostgreSQL DB  │←──────┤  app.py 대시보드      │
-│ crawl_hankyung.py   │       │  (500MB 무료)    │       │                     │
-│ crawl_google_news.py│       │  항상 켜져있음    │       │  human-index.       │
-│                     │       │                 │       │  streamlit.app      │
-│ 1시간/6시간/평일     │       └─────────────────┘       └─────────────────────┘
-└─────────────────────┘           클라우드 DB               어디서든 접속 가능
-   24/7 GitHub Actions
-                              ┌─────────────────┐
-                              │  Mac (로컬 백업)  │
-                              │ launchd 스케줄    │
-                              │ 동일 크롤러 병행   │
-                              └────────┬─────────┘
-                                       │ INSERT (중복 자동 무시)
-                                       └─────────→  Supabase
-```
-
 ---
 
-## 운영 현황
-
-### 배포 서비스
+## 배포 서비스
 
 | 서비스 | 용도 | URL / 설정 |
 |--------|------|-----------|
 | **Streamlit Cloud** | 대시보드 | [human-index.streamlit.app](https://human-index-fbsfdag8sk7hcpfedhrm9h.streamlit.app/) |
 | **Supabase** | PostgreSQL DB | 서울 리전, Session Pooler 사용 |
 | **GitHub Actions** | 크롤러 자동화 | Repository secrets로 DB 접속 |
-
-### 크롤러 스케줄
-
-| 크롤러 | GitHub Actions (주력) | macOS launchd (백업) |
-|--------|---------------------|-------------------|
-| 커뮤니티 (MLBPark, 클리앙, 에펨코리아) | 1시간마다 | 1시간마다 |
-| 한경 리포트 | 평일 18:30 | 1일 1회 |
-| Google News RSS | 6시간마다 | 6시간마다 |
 
 ---
 
@@ -125,15 +93,15 @@ launchctl list | grep humanindex
 
 ---
 
-## DB 접속 구조
+## DB 접속 우선순위
 
-### 우선순위 (스크립트 - `scripts/db_config.py`)
+### 스크립트 (`scripts/db_config.py`)
 
 1. `.streamlit/secrets.toml` (로컬 개발)
 2. 환경변수 (`DB_HOST` 등) (GitHub Actions, launchd)
 3. 기본값 (`localhost`) (폴백)
 
-### 우선순위 (대시보드 - `lib/shared.py`)
+### 대시보드 (`lib/shared.py`)
 
 1. Streamlit secrets (`st.secrets["database"]`) (Streamlit Cloud)
 2. 환경변수 (로컬 개발)
