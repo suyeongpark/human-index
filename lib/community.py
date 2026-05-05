@@ -80,6 +80,10 @@ def page_mention_ranking(start_date, end_date):
     """📊 언급량 랭킹"""
     st.title("📊 종목 언급량 랭킹")
 
+    period = period_tabs("comm_ranking_period")
+    days = PERIOD_DAYS[period]
+    period_start = max(start_date, end_date - timedelta(days=days))
+
     ranking = run_query("""
         SELECT t.symbol as "심볼", t.name as "종목명", t.market as "시장",
                COUNT(*) as "총 언급",
@@ -100,7 +104,7 @@ def page_mention_ranking(start_date, end_date):
         GROUP BY t.symbol, t.name, t.market
         ORDER BY "⭐ 가중 점수" DESC
     """, (SCORE_WEIGHT_POSITIVE, SCORE_WEIGHT_NEGATIVE, SCORE_WEIGHT_NEUTRAL,
-          start_date, end_date))
+          period_start, end_date))
 
     if not ranking.empty:
         paginated_dataframe(ranking, "pg_mention_ranking")

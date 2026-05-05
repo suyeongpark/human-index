@@ -129,6 +129,11 @@ def page_report_ranking(start_date, end_date):
     """📊 리포트 랭킹"""
     st.title("📊 종목별 리포트 랭킹")
 
+    from datetime import timedelta
+    period = period_tabs("rpt_ranking_period")
+    days = PERIOD_DAYS[period]
+    period_start = max(start_date, end_date - timedelta(days=days))
+
     rpt_ranking = run_query("""
         SELECT t.symbol as "심볼", t.name as "종목명",
                COUNT(*) as "리포트 수",
@@ -150,7 +155,7 @@ def page_report_ranking(start_date, end_date):
         WHERE ea.published_date BETWEEN %s AND %s AND es.source_type = 'report'
         GROUP BY t.symbol, t.name
         ORDER BY "⭐ 가중 점수" DESC
-    """, (start_date, end_date))
+    """, (period_start, end_date))
 
     if not rpt_ranking.empty:
         paginated_dataframe(rpt_ranking, "pg_rpt_ranking")
