@@ -337,9 +337,10 @@ def analyze_sentiment(title: str) -> int:
 
 def build_ticker_map(cur) -> dict:
     """DB의 tickers 테이블 전체 + 수동 별칭으로 매칭 맵 구성
-    Returns: {keyword: [(ticker_id, symbol), ...]} - 긴 키워드 우선
+    모든 키는 upper()로 저장하여 대소문자 무시 매칭 (한글은 영향 없음)
+    Returns: {keyword_upper: [(ticker_id, symbol), ...]} - 긴 키워드 우선
     """
-    ticker_map = {}  # keyword → [(ticker_id, symbol), ...]
+    ticker_map = {}  # keyword_upper → [(ticker_id, symbol), ...]
 
     # 1) DB에서 모든 종목 로드
     cur.execute("SELECT id, symbol, name, market FROM tickers WHERE is_active = TRUE")
@@ -349,26 +350,26 @@ def build_ticker_map(cur) -> dict:
     for ticker_id, symbol, name, market in all_tickers:
         symbol_to_id[symbol] = ticker_id
 
-        # KRX 종목: name으로 매칭 (예: "미래에셋증권", "삼성전자")
+        # KRX 종목: name으로 매칭
         if market in ("KOSPI", "KOSDAQ"):
-            if name and len(name) >= 2 and name not in SKIP_NAMES:
-                ticker_map[name] = [(ticker_id, symbol)]
+            if name and len(name) >= 2 and name.upper() not in SKIP_NAMES:
+                ticker_map[name.upper()] = [(ticker_id, symbol)]
 
-        # US 종목: 3글자 이상 심볼만 (1~2글자는 오매칭 위험)
+        # US 종목: 3글자 이상 심볼만
         elif market in ("US", "NASDAQ", "NYSE"):
             if len(symbol) >= 3 and symbol not in SKIP_NAMES:
-                ticker_map[symbol] = [(ticker_id, symbol)]
+                ticker_map[symbol.upper()] = [(ticker_id, symbol)]
 
     # 2) 수동 한글 별칭 추가 (1:1)
     for alias, symbol in EXTRA_ALIASES.items():
-        if symbol in symbol_to_id and alias not in SKIP_NAMES:
-            ticker_map[alias] = [(symbol_to_id[symbol], symbol)]
+        if symbol in symbol_to_id and alias.upper() not in SKIP_NAMES:
+            ticker_map[alias.upper()] = [(symbol_to_id[symbol], symbol)]
 
     # 3) 복수 종목 별칭 추가 (1:N)
     for alias, symbols in MULTI_ALIASES.items():
         pairs = [(symbol_to_id[s], s) for s in symbols if s in symbol_to_id]
         if pairs:
-            ticker_map[alias] = pairs
+            ticker_map[alias.upper()] = pairs
 
     log.info(f"  종목 매칭 맵: {len(ticker_map)}개 키워드 로드")
     return ticker_map
@@ -401,7 +402,7 @@ def extract_tickers_for_new_posts(cur) -> int:
     total_mentions = 0
     for post_id, title in unanalyzed:
         found_tickers = set()
-        remaining = title
+        remaining = title.upper()  # 대소문자 무시 매칭
 
         for keyword in sorted_keywords:
             if keyword in remaining:
