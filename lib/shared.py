@@ -143,6 +143,13 @@ def period_tabs(key: str, include_daily: bool = False) -> str:
     return st.radio("📅 집계 기간", options, key=key, horizontal=True, label_visibility="collapsed")
 
 
+def show_period_range(period_start, end_date):
+    """선택된 기간의 날짜 범위를 탭 아래에 표시."""
+    from datetime import date
+    fmt = lambda d: d.strftime("%Y-%m-%d") if hasattr(d, "strftime") else str(d)[:10]
+    st.caption(f"📅 {fmt(period_start)} ~ {fmt(end_date)}")
+
+
 # ─── 공통 UI 컴포넌트 ──────────────────────────────────
 
 # 감성/투자의견 색상 매핑 (긍정=파랑, 부정=빨강, 중립=회색)

@@ -5,7 +5,7 @@ expert_sources.source_type = 'article' 데이터만 표시
 
 import streamlit as st
 from lib.shared import (
-    run_query, paginated_dataframe, period_tabs,
+    run_query, paginated_dataframe, period_tabs, show_period_range,
     render_top10_chart, render_surge_page, render_colored_line_chart,
     page_header, pagination_bar,
     PERIOD_OPTIONS, PERIOD_SQL, PERIOD_DAYS,
@@ -150,6 +150,7 @@ def page_overview(start_date, end_date):
     period = period_tabs("news_period")
     days = PERIOD_DAYS[period]
     period_start = max(start_date, end_date - timedelta(days=days))
+    show_period_range(period_start, end_date)
     date_sel = PERIOD_SQL[period]["select"].format(date_col="ea.published_date")
     date_grp = PERIOD_SQL[period]["group"].format(date_col="ea.published_date")
 
@@ -199,6 +200,7 @@ def page_mention_ranking(start_date, end_date):
     period = period_tabs("news_ranking_period", include_daily=True)
     days = PERIOD_DAYS[period]
     period_start = max(start_date, end_date - timedelta(days=days))
+    show_period_range(period_start, end_date)
 
     ranking = run_query(SQL_MENTION_RANKING, (
         SCORE_WEIGHT_POSITIVE, SCORE_WEIGHT_NEGATIVE, SCORE_WEIGHT_NEUTRAL,

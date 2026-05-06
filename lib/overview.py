@@ -3,7 +3,7 @@
 """
 
 import streamlit as st
-from lib.shared import run_query, paginated_dataframe, period_tabs, render_top10_chart, render_colored_line_chart, page_header, PERIOD_DAYS
+from lib.shared import run_query, paginated_dataframe, period_tabs, show_period_range, render_top10_chart, render_colored_line_chart, page_header, PERIOD_DAYS
 
 # ─── SQL 쿼리 ──────────────────────────────────────────
 
@@ -207,6 +207,7 @@ def page_dashboard(start_date, end_date):
     period = period_tabs("combined_period", include_daily=True)
     days = PERIOD_DAYS[period]
     period_start = max(start_date, end_date - timedelta(days=days))
+    show_period_range(period_start, end_date)
 
     # KPI
     kpi_all = run_query(SQL_KPI, (period_start, end_date) * 9)
