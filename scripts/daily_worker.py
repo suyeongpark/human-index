@@ -257,14 +257,14 @@ def crawl_fmkorea_page(url: str) -> list[dict]:
         if "공지" in cate_text:
             continue
 
-        # 제목: td.title 안의 글 링크 (href가 /숫자 형태)
+        # 제목: td.title 안의 글 링크 (/숫자 또는 document_srl=숫자)
         title_td = row.select_one("td.title")
         if not title_td:
             continue
         title_a = None
         for a in title_td.select("a"):
             href = a.get("href", "")
-            if re.match(r"^/\d+$", href):
+            if re.match(r"^/\d+$", href) or "document_srl=" in href:
                 title_a = a
                 break
         if not title_a:
@@ -321,7 +321,7 @@ def _build_page_url(community: dict, page: int) -> str:
     elif parser == "clien":
         return f"{base}?&po={page}" if page > 0 else base
     elif parser == "fmkorea":
-        return f"{base}&page={page + 1}" if page > 0 else base
+        return f"{base}{page + 1}"
     return base
 
 
