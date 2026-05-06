@@ -207,10 +207,14 @@ def page_dashboard(start_date, end_date):
     period = period_tabs("combined_period", include_daily=True)
     days = PERIOD_DAYS[period]
     period_start = max(start_date, end_date - timedelta(days=days))
+    # 리포트/뉴스는 DATE 타입이므로 시간 부분 제거 (00:00:00으로 정규화)
+    import pandas as pd
+    period_start = pd.Timestamp(period_start).normalize()
+    end_date_norm = pd.Timestamp(end_date).normalize() + timedelta(days=1)
     show_period_range(period_start, end_date)
 
     # KPI
-    kpi_all = run_query(SQL_KPI, (period_start, end_date) * 9)
+    kpi_all = run_query(SQL_KPI, (period_start, end_date_norm) * 9)
 
     # 1행: 3개 커럼 (2span)
     c1, c2, c3 = st.columns(3)
@@ -229,7 +233,7 @@ def page_dashboard(start_date, end_date):
 
     # 종목별 교차 분석
     st.subheader("🔀 종목별 비교")
-    cross = run_query(SQL_CROSS_ANALYSIS, (period_start, end_date, period_start, end_date, period_start, end_date))
+    cross = run_query(SQL_CROSS_ANALYSIS, (period_start, end_date_norm, period_start, end_date_norm, period_start, end_date_norm))
 
     if not cross.empty:
         paginated_dataframe(cross, "pg_cross_analysis")
@@ -243,19 +247,19 @@ def page_dashboard(start_date, end_date):
     with col_comm:
         with st.container(border=True):
             st.markdown('<div class="channel-card-title">📢 커뮤니티</div>', unsafe_allow_html=True)
-            comm_top = run_query(SQL_TOP10_COMMUNITY, (period_start, end_date))
+            comm_top = run_query(SQL_TOP10_COMMUNITY, (period_start, end_date_norm))
             render_top10_chart(comm_top, height=280)
 
     with col_rpt:
         with st.container(border=True):
             st.markdown('<div class="channel-card-title report">🔬 리포트</div>', unsafe_allow_html=True)
-            expert_top = run_query(SQL_TOP10_EXPERT, (period_start, end_date))
+            expert_top = run_query(SQL_TOP10_EXPERT, (period_start, end_date_norm))
             render_top10_chart(expert_top, height=280)
 
     with col_news:
         with st.container(border=True):
             st.markdown('<div class="channel-card-title news">📰 뉴스</div>', unsafe_allow_html=True)
-            news_top = run_query(SQL_TOP10_NEWS, (period_start, end_date))
+            news_top = run_query(SQL_TOP10_NEWS, (period_start, end_date_norm))
             render_top10_chart(news_top, height=280)
 
 
