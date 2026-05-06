@@ -69,14 +69,13 @@ SQL_DATE_RANGE = """
             WHERE es.source_type = 'article') as max_news
 """
 date_range = run_query(SQL_DATE_RANGE)
-min_date = date_range["min_d"].iloc[0]
-end_community = date_range["max_community"].iloc[0]
-end_report = date_range["max_report"].iloc[0]
-end_news = date_range["max_news"].iloc[0]
-start_date = min_date
-# TIMESTAMP vs DATE 타입 통일
 import pandas as pd
-_ends = [pd.Timestamp(d) for d in [end_community, end_report, end_news] if d is not None and not pd.isna(d)]
+_to_ts = lambda v: pd.Timestamp(v) if v is not None and not pd.isna(v) else None
+start_date = _to_ts(date_range["min_d"].iloc[0])
+end_community = _to_ts(date_range["max_community"].iloc[0])
+end_report = _to_ts(date_range["max_report"].iloc[0])
+end_news = _to_ts(date_range["max_news"].iloc[0])
+_ends = [d for d in [end_community, end_report, end_news] if d is not None]
 end_date = max(_ends) if _ends else end_community
 
 # ─── 메뉴 섹션 정의 ──────────────────────────────────
