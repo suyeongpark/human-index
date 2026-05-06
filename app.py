@@ -55,19 +55,22 @@ st.sidebar.markdown("""
 
 # 날짜 범위 (커뮤니티 + 전문가 통합)
 SQL_DATE_RANGE = """
-    SELECT LEAST(
-        (SELECT MIN(post_date) FROM posts),
-        (SELECT MIN(published_date) FROM expert_articles)
-    ) as min_d,
-    GREATEST(
-        (SELECT MAX(post_date) FROM posts),
-        (SELECT MAX(published_date) FROM expert_articles)
-    ) as max_d
+    SELECT
+        LEAST(
+            (SELECT MIN(post_date) FROM posts),
+            (SELECT MIN(published_date) FROM expert_articles)
+        ) as min_d,
+        (SELECT MAX(post_date) FROM posts) as max_community,
+        (SELECT MAX(published_date) FROM expert_articles WHERE channel = 'report') as max_report,
+        (SELECT MAX(published_date) FROM expert_articles WHERE channel = 'news') as max_news
 """
 date_range = run_query(SQL_DATE_RANGE)
 min_date = date_range["min_d"].iloc[0]
-max_date = date_range["max_d"].iloc[0]
-start_date, end_date = min_date, max_date
+end_community = date_range["max_community"].iloc[0]
+end_report = date_range["max_report"].iloc[0]
+end_news = date_range["max_news"].iloc[0]
+start_date = min_date
+end_date = max(d for d in [end_community, end_report, end_news] if d is not None)
 
 # ─── 메뉴 섹션 정의 ──────────────────────────────────
 COMMUNITY_PAGES = ["📈 커뮤니티 개요", "📊 언급량 랭킹", "🚀 급상승 랭킹", "📋 게시글 목록"]
@@ -164,6 +167,18 @@ PAGE_MAP = {
     "🔍 종목 검색": overview.page_ticker_search,
 }
 
+# ─── 페이지별 end_date 매핑 ─────────────────────────
+_COMMUNITY_PAGES_SET = set(COMMUNITY_PAGES)
+_EXPERT_PAGES_SET = set(EXPERT_PAGES)
+_NEWS_PAGES_SET = set(NEWS_PAGES)
+
 page = st.session_state.page
 if page in PAGE_MAP:
-    PAGE_MAP[page](start_date, end_date)
+    if page in _COMMUNITY_PAGES_SET:
+        PAGE_MAP[page](start_date, end_community)
+    elif page in _EXPERT_PAGES_SET:
+        PAGE_MAP[page](start_date, end_report)
+    elif page in _NEWS_PAGES_SET:
+        PAGE_MAP[page](start_date, end_news)
+    else:
+        PAGE_MAP[page](start_date, end_date)
