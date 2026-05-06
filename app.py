@@ -61,8 +61,12 @@ SQL_DATE_RANGE = """
             (SELECT MIN(published_date) FROM expert_articles)
         ) as min_d,
         (SELECT MAX(post_date) FROM posts) as max_community,
-        (SELECT MAX(published_date) FROM expert_articles WHERE channel = 'report') as max_report,
-        (SELECT MAX(published_date) FROM expert_articles WHERE channel = 'news') as max_news
+        (SELECT MAX(ea.published_date) FROM expert_articles ea
+            JOIN expert_sources es ON es.id = ea.source_id
+            WHERE es.source_type = 'report') as max_report,
+        (SELECT MAX(ea.published_date) FROM expert_articles ea
+            JOIN expert_sources es ON es.id = ea.source_id
+            WHERE es.source_type = 'article') as max_news
 """
 date_range = run_query(SQL_DATE_RANGE)
 min_date = date_range["min_d"].iloc[0]
