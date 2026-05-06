@@ -249,18 +249,29 @@ def crawl_fmkorea_page(url: str) -> list[dict]:
 
     posts = []
     for row in soup.select("tr"):
-        # 제목 링크 (에펨코리아 Sketchbook5 스킨: a.hx)
-        title_a = row.select_one("a.hx")
+        # 카테고리 확인 (공지 제외)
+        cate_el = row.select_one("td.cate")
+        if not cate_el:
+            continue
+        cate_text = cate_el.get_text(strip=True)
+        if "공지" in cate_text:
+            continue
+
+        # 제목: td.title 안의 글 링크 (href가 /숫자 형태)
+        title_td = row.select_one("td.title")
+        if not title_td:
+            continue
+        title_a = None
+        for a in title_td.select("a"):
+            href = a.get("href", "")
+            if re.match(r"^/\d+$", href):
+                title_a = a
+                break
         if not title_a:
             continue
 
-        # 공지 제외: 첫 번째 링크 텍스트에 '공지' 포함 시 스킵
-        first_a = row.select_one("a")
-        if first_a and "공지" in first_a.get_text():
-            continue
-
-        # 제목 (댓글 수 제외)
-        for reply_span in title_a.select("span.replyNum"):
+        # 제목 (댓글 수 span 제거)
+        for reply_span in title_a.select("span"):
             reply_span.decompose()
         title = title_a.get_text(strip=True)
         if not title:
