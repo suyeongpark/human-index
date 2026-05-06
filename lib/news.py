@@ -216,6 +216,8 @@ def page_mention_ranking(start_date, end_date):
 def page_article_list(start_date, end_date):
     """📋 뉴스 목록"""
     page_header("📋 뉴스 목록", "수집된 뉴스 기사 원문 목록")
+    if st.button("🔄 새로고침", key="refresh_news"):
+        st.rerun()
 
     PAGE_SIZE = 25
 

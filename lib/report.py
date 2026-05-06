@@ -218,6 +218,8 @@ def page_report_ranking(start_date, end_date):
 def page_report_list(start_date, end_date):
     """📋 리포트 목록"""
     page_header("📋 리포트 목록", "수집된 증권사 리포트 원문 목록")
+    if st.button("🔄 새로고침", key="refresh_reports"):
+        st.rerun()
 
     PAGE_SIZE = 25
 
