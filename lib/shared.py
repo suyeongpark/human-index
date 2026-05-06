@@ -70,7 +70,7 @@ def page_header(title, caption=None):
 
 def pagination_bar(page, total_pages, session_key, prefix, show_refresh=False):
     """통일된 페이지네이션 바 (⏮ ◀ 1/N ▶ ⏭ 🔄)"""
-    cols = st.columns([6, 1, 1, 3, 1, 1, 6, 2] if show_refresh else [8, 1, 1, 3, 1, 1, 8])
+    cols = st.columns([6, 1, 1, 3, 1, 1, 6, 1] if show_refresh else [8, 1, 1, 3, 1, 1, 8])
     _, col_first, col_prev, col_info, col_next, col_last = cols[0], cols[1], cols[2], cols[3], cols[4], cols[5]
     with col_first:
         if st.button("⏮", disabled=(page == 0), key=f"{prefix}_first"):
@@ -97,7 +97,7 @@ def pagination_bar(page, total_pages, session_key, prefix, show_refresh=False):
             st.rerun()
     if show_refresh:
         with cols[7]:
-            if st.button("🔄 새로고침", key=f"{prefix}_refresh"):
+            if st.button("↻", key=f"{prefix}_refresh"):
                 st.rerun()
 
 
