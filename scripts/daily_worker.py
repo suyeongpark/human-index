@@ -125,13 +125,15 @@ def parse_post_date(date_text: str) -> datetime:
     if not date_text:
         return datetime.now()
 
-    # "14:30" 같은 시간만 → 오늘 + 해당 시간
+    # "13:02:26" 또는 "14:30" 같은 시간만 → 오늘 + 해당 시간
     if ":" in date_text and "-" not in date_text and "." not in date_text:
-        try:
-            t = datetime.strptime(date_text, "%H:%M")
-            return datetime.combine(date.today(), t.time())
-        except ValueError:
-            return datetime.now()
+        for fmt in ("%H:%M:%S", "%H:%M"):
+            try:
+                t = datetime.strptime(date_text, fmt)
+                return datetime.combine(date.today(), t.time())
+            except ValueError:
+                continue
+        return datetime.now()
 
     # "2026-05-04" (MLB Park)
     try:
