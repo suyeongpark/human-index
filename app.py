@@ -74,7 +74,10 @@ end_community = date_range["max_community"].iloc[0]
 end_report = date_range["max_report"].iloc[0]
 end_news = date_range["max_news"].iloc[0]
 start_date = min_date
-end_date = max(d for d in [end_community, end_report, end_news] if d is not None)
+# TIMESTAMP vs DATE 타입 통일
+import pandas as pd
+_ends = [pd.Timestamp(d) for d in [end_community, end_report, end_news] if d is not None and not pd.isna(d)]
+end_date = max(_ends) if _ends else end_community
 
 # ─── 메뉴 섹션 정의 ──────────────────────────────────
 COMMUNITY_PAGES = ["📈 커뮤니티 개요", "📊 언급량 랭킹", "🚀 급상승 랭킹", "📋 게시글 목록"]
