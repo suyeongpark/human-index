@@ -243,8 +243,6 @@ def page_author_ranking(start_date, end_date):
 def page_post_list(start_date, end_date):
     """📋 게시글 목록"""
     page_header("📋 게시글 목록", "수집된 커뮤니티 게시글 원문 목록")
-    if st.button("🔄 새로고침", key="refresh_posts"):
-        st.rerun()
 
     PAGE_SIZE = 25
 
@@ -318,4 +316,4 @@ def page_post_list(start_date, end_date):
         }
     )
 
-    pagination_bar(page, total_pages, "posts_page", "posts")
+    pagination_bar(page, total_pages, "posts_page", "posts", show_refresh=True)

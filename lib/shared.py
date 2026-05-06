@@ -68,9 +68,10 @@ def page_header(title, caption=None):
     st.markdown("".join(parts), unsafe_allow_html=True)
 
 
-def pagination_bar(page, total_pages, session_key, prefix):
-    """통일된 페이지네이션 바 (⏮ ◀ 1/N ▶ ⏭)"""
-    _, col_first, col_prev, col_info, col_next, col_last, _ = st.columns([8, 1, 1, 3, 1, 1, 8])
+def pagination_bar(page, total_pages, session_key, prefix, show_refresh=False):
+    """통일된 페이지네이션 바 (⏮ ◀ 1/N ▶ ⏭ 🔄)"""
+    cols = st.columns([6, 1, 1, 3, 1, 1, 6, 2] if show_refresh else [8, 1, 1, 3, 1, 1, 8])
+    _, col_first, col_prev, col_info, col_next, col_last = cols[0], cols[1], cols[2], cols[3], cols[4], cols[5]
     with col_first:
         if st.button("⏮", disabled=(page == 0), key=f"{prefix}_first"):
             st.session_state[session_key] = 0
@@ -94,6 +95,10 @@ def pagination_bar(page, total_pages, session_key, prefix):
         if st.button("⏭", disabled=(page >= total_pages - 1), key=f"{prefix}_last"):
             st.session_state[session_key] = total_pages - 1
             st.rerun()
+    if show_refresh:
+        with cols[7]:
+            if st.button("🔄 새로고침", key=f"{prefix}_refresh"):
+                st.rerun()
 
 
 PAGE_SIZE = 25
