@@ -17,9 +17,15 @@ word,sentiment
 반등,positive
 회복,positive
 날아,positive
+날라,positive
 간다,positive
 갑니다,positive
 가즈아,positive
+축하,positive
+폭주,positive
+홀딩,positive
+부활,positive
+미치,positive
 하락,negative
 급락,negative
 폭락,negative
@@ -41,3 +47,5 @@ word,sentiment
 규제,negative
 제재,negative
 우려,negative
+노답,negative
+ㅅㅂ,negative
