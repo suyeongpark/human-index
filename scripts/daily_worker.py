@@ -187,6 +187,10 @@ def crawl_mlbpark_page(url: str) -> list[dict]:
         href = title_el.get("href", "")
         if href and not href.startswith("http"):
             href = f"https://mlbpark.donga.com{href}"
+        # URL 정규화: p= 파라미터가 다르면 같은 글이 중복 저장되므로 id 기반 URL로 통일
+        id_match = re.search(r"id=(\d+)", href)
+        if id_match:
+            href = f"https://mlbpark.donga.com/mp/b.php?id={id_match.group(1)}&b=bullpen"
 
         author = cols[2].get_text(strip=True)
         date_text = cols[3].get_text(strip=True)
