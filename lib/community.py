@@ -106,7 +106,7 @@ SQL_AUTHOR_RANKING = """
 SQL_COMMUNITY_LIST = """
     SELECT DISTINCT c.name FROM communities c
     JOIN posts p ON p.community_id = c.id
-    WHERE p.post_date BETWEEN %s AND %s
+    WHERE c.is_active = TRUE AND p.post_date BETWEEN %s AND %s
     ORDER BY c.name
 """
 
