@@ -266,16 +266,17 @@ def crawl_fmkorea_page(url: str) -> list[dict]:
         if "공지" in cate_text:
             continue
 
-        # 제목: td.title 안의 글 링크 (/숫자 또는 document_srl=숫자)
-        title_td = row.select_one("td.title")
+        # 제목: td.title 안의 글 링크 (a.hx 또는 /숫자 또는 document_srl=숫자)
+        title_td = row.select_one("td[class*='title']")
         if not title_td:
             continue
-        title_a = None
-        for a in title_td.select("a"):
-            href = a.get("href", "")
-            if re.match(r"^/\d+$", href) or "document_srl=" in href:
-                title_a = a
-                break
+        title_a = title_td.select_one("a.hx")
+        if not title_a:
+            for a in title_td.select("a"):
+                href = a.get("href", "")
+                if re.match(r"^/\d+$", href) or "document_srl=" in href:
+                    title_a = a
+                    break
         if not title_a:
             continue
 
