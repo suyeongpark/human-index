@@ -17,7 +17,7 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# ─── Google Analytics (GA4) ───────────────────────────
+# ─── Google Analytics (GA4) + 타이틀 설정 ─────────────
 st.markdown("""
 <!-- Google tag (gtag.js) -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-HMWHDRSKR2"></script>
@@ -26,6 +26,12 @@ st.markdown("""
     function gtag(){dataLayer.push(arguments);}
     gtag('js', new Date());
     gtag('config', 'G-HMWHDRSKR2');
+
+    // 브라우저 탭 타이틀 변경
+    document.title = 'Human Index';
+    new MutationObserver(function() {
+        if (document.title !== 'Human Index') document.title = 'Human Index';
+    }).observe(document.querySelector('title'), {childList: true});
 </script>
 """, unsafe_allow_html=True)
 
