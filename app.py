@@ -18,22 +18,24 @@ st.set_page_config(
 )
 
 # ─── Google Analytics (GA4) + 타이틀 설정 ─────────────
-st.markdown("""
-<!-- Google tag (gtag.js) -->
+import streamlit.components.v1 as components
+components.html("""
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-HMWHDRSKR2"></script>
 <script>
+    // GA4
     window.dataLayer = window.dataLayer || [];
     function gtag(){dataLayer.push(arguments);}
     gtag('js', new Date());
     gtag('config', 'G-HMWHDRSKR2');
 
-    // 브라우저 탭 타이틀 변경
-    document.title = 'Human Index';
+    // 부모 페이지 타이틀 변경
+    var doc = window.parent.document;
+    doc.title = 'Human Index';
     new MutationObserver(function() {
-        if (document.title !== 'Human Index') document.title = 'Human Index';
-    }).observe(document.querySelector('title'), {childList: true});
+        if (doc.title !== 'Human Index') doc.title = 'Human Index';
+    }).observe(doc.querySelector('title'), {childList: true});
 </script>
-""", unsafe_allow_html=True)
+""", height=0)
 
 # ─── 스타일 ──────────────────────────────────────────
 from pathlib import Path
