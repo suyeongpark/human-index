@@ -125,12 +125,17 @@ def parse_post_date(date_text: str) -> datetime:
     if not date_text:
         return datetime.now()
 
-    # "13:02:26" 또는 "14:30" 같은 시간만 → 오늘 + 해당 시간
+    # "13:02:26" 또는 "14:30" 같은 시간만 → 오늘 + 해당 시간 (미래면 어제)
     if ":" in date_text and "-" not in date_text and "." not in date_text:
+        from datetime import timedelta as _td
         for fmt in ("%H:%M:%S", "%H:%M"):
             try:
                 t = datetime.strptime(date_text, fmt)
-                return datetime.combine(date.today(), t.time())
+                result = datetime.combine(date.today(), t.time())
+                # 크롤링 시점보다 미래이면 전날 글로 판단
+                if result > datetime.now():
+                    result -= _td(days=1)
+                return result
             except ValueError:
                 continue
         return datetime.now()
