@@ -12,7 +12,7 @@ from lib import community, report, news, overview
 # ─── 페이지 설정 ─────────────────────────────────────
 st.set_page_config(
     page_title="Human Index",
-    page_icon="📊",
+    page_icon="static/favicon.png",
     layout="wide",
     initial_sidebar_state="expanded",
 )
