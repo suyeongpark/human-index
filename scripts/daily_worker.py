@@ -256,6 +256,13 @@ def crawl_fmkorea_page(url: str) -> list[dict]:
     resp.encoding = "utf-8"
     soup = BeautifulSoup(resp.text, "html.parser")
 
+    # 디버그: 응답 상태 기록
+    all_trs = soup.select("tbody tr")
+    cate_trs = [r for r in all_trs if r.select_one("td.cate")]
+    normal_trs = [r for r in cate_trs if "공지" not in r.select_one("td.cate").get_text()]
+    logger.info(f"  [FM디버그] status={resp.status_code} len={len(resp.text)} "
+                 f"tr={len(all_trs)} cate={len(cate_trs)} normal={len(normal_trs)}")
+
     posts = []
     for row in soup.select("tr"):
         # 카테고리 확인 (공지 제외)
@@ -361,8 +368,17 @@ def crawl_community(cur, community: dict) -> int:
             continue
 
         if not posts:
-            log.info(f"  페이지 {page+1}: 게시글 없음, 종료")
-            break
+            # 첫 페이지 빈 결과 → 봇 차단 가능성, 1회 재시도
+            if page == 0:
+                log.info(f"  페이지 1: 빈 결과, 3초 후 재시도...")
+                time.sleep(3)
+                try:
+                    posts = parse_fn(url)
+                except Exception:
+                    pass
+            if not posts:
+                log.info(f"  페이지 {page+1}: 게시글 없음, 종료")
+                break
 
         # 새 글만 필터링하여 INSERT
         new_posts = [p for p in posts if p.get("source_url") not in known_urls]
