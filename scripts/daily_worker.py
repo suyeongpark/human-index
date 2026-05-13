@@ -17,6 +17,7 @@ import time
 import logging
 import os
 import sys
+import random
 
 # ─── 로깅 설정 ────────────────────────────────────────
 LOG_DIR = os.path.join(os.path.dirname(__file__), "..", "logs")
@@ -37,7 +38,7 @@ log = logging.getLogger("worker")
 
 # ─── 설정 ──────────────────────────────────────────────
 from db_config import DB_CONFIG
-from crawler_config import HEADERS, COMMUNITIES
+from crawler_config import HEADERS, COMMUNITIES, build_headers
 from data_loader import (
     load_aliases, load_multi_aliases, load_skip_names,
     load_sentiment_words,
@@ -106,6 +107,13 @@ SQL_COUNT_MENTIONS = "SELECT COUNT(*) FROM post_mentions"
 # STEP 1: 크롤링
 # ═══════════════════════════════════════════════════════
 
+def fetch_page(url: str, parser: str = "default", session=None, referer: str | None = None):
+    """페이지 요청. session을 넘기면 쿠키와 연결을 유지한다."""
+    client = session or requests
+    headers = build_headers(parser, referer=referer) if parser else HEADERS
+    return client.get(url, headers=headers, timeout=15)
+
+
 def ensure_community(cur, community: dict) -> int:
     """커뮤니티 존재 확인/생성"""
     cur.execute(SQL_FIND_COMMUNITY, (community["name"],))
@@ -168,9 +176,9 @@ def parse_post_date(date_text: str) -> datetime:
 
 
 
-def crawl_mlbpark_page(url: str) -> list[dict]:
+def crawl_mlbpark_page(url: str, session=None, referer: str | None = None) -> list[dict]:
     """MLB Park 한 페이지 크롤링"""
-    resp = requests.get(url, headers=HEADERS, timeout=15)
+    resp = fetch_page(url, "mlbpark", session=session, referer=referer)
     resp.encoding = "utf-8"
     soup = BeautifulSoup(resp.text, "html.parser")
 
@@ -210,9 +218,9 @@ def crawl_mlbpark_page(url: str) -> list[dict]:
     return posts
 
 
-def crawl_clien_page(url: str) -> list[dict]:
+def crawl_clien_page(url: str, session=None, referer: str | None = None) -> list[dict]:
     """클리앙 투자게시판 한 페이지 크롤링"""
-    resp = requests.get(url, headers=HEADERS, timeout=15)
+    resp = fetch_page(url, "clien", session=session, referer=referer)
     resp.encoding = "utf-8"
     soup = BeautifulSoup(resp.text, "html.parser")
 
@@ -250,9 +258,9 @@ def crawl_clien_page(url: str) -> list[dict]:
     return posts
 
 
-def crawl_fmkorea_page(url: str) -> list[dict]:
+def crawl_fmkorea_page(url: str, session=None, referer: str | None = None) -> list[dict]:
     """에펨코리아 주식 게시판 한 페이지 크롤링"""
-    resp = requests.get(url, headers=HEADERS, timeout=15)
+    resp = fetch_page(url, "fmkorea", session=session, referer=referer)
     resp.encoding = "utf-8"
     soup = BeautifulSoup(resp.text, "html.parser")
 
@@ -260,8 +268,8 @@ def crawl_fmkorea_page(url: str) -> list[dict]:
     all_trs = soup.select("tbody tr")
     cate_trs = [r for r in all_trs if r.select_one("td.cate")]
     normal_trs = [r for r in cate_trs if "공지" not in r.select_one("td.cate").get_text()]
-    logger.info(f"  [FM디버그] status={resp.status_code} len={len(resp.text)} "
-                 f"tr={len(all_trs)} cate={len(cate_trs)} normal={len(normal_trs)}")
+    log.info(f"  [FM디버그] status={resp.status_code} len={len(resp.text)} "
+             f"tr={len(all_trs)} cate={len(cate_trs)} normal={len(normal_trs)}")
 
     posts = []
     for row in soup.select("tr"):
@@ -358,11 +366,14 @@ def crawl_community(cur, community: dict) -> int:
     cur.execute(SQL_KNOWN_URLS, (community_id,))
     known_urls = {row[0] for row in cur.fetchall() if row[0]}
 
+    session = requests.Session()
+    referer = community.get("base_url")
+
     for page in range(community["max_pages"]):
         url = _build_page_url(community, page)
 
         try:
-            posts = parse_fn(url)
+            posts = parse_fn(url, session=session, referer=referer)
         except Exception as e:
             log.warning(f"  페이지 {page+1} 크롤링 실패: {e}")
             continue
@@ -373,7 +384,7 @@ def crawl_community(cur, community: dict) -> int:
                 log.info(f"  페이지 1: 빈 결과, 3초 후 재시도...")
                 time.sleep(3)
                 try:
-                    posts = parse_fn(url)
+                    posts = parse_fn(url, session=session, referer=referer)
                 except Exception:
                     pass
             if not posts:
@@ -405,7 +416,11 @@ def crawl_community(cur, community: dict) -> int:
         else:
             consecutive_dup_pages = 0
 
-        time.sleep(1)  # 크롤링 딜레이 (초)
+        referer = url
+        if parser_name == "fmkorea":
+            time.sleep(random.uniform(3.0, 6.0))
+        else:
+            time.sleep(1)  # 크롤링 딜레이 (초)
 
     return total_inserted
 
@@ -620,4 +635,3 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
     run_pipeline(community_filter=args.community)
-

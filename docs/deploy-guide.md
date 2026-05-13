@@ -103,6 +103,17 @@ launchd가 안정적으로 동작하려면 시스템 잠자기를 꺼야 합니�
 sudo pmset -c sleep 0
 ```
 
+### 에펨코리아 요청 안정화
+
+커뮤니티 크롤러는 `requests.Session()`으로 쿠키/연결을 유지하고, 요청마다 브라우저형 헤더와 `Referer`를 설정합니다. 필요하면 launchd 환경변수에 아래 값을 추가할 수 있습니다.
+
+| 환경변수 | 설명 |
+|----------|------|
+| `FMKOREA_COOKIE` | 브라우저에서 로그인/방문 후 확인한 쿠키 문자열 |
+| `FMKOREA_USER_AGENT` | 쿠키를 가져온 브라우저의 User-Agent |
+
+쿠키는 계정 정보와 연결될 수 있으므로 저장소에 커밋하지 말고, 로컬 launchd 환경변수나 비밀 설정으로만 관리합니다.
+
 > GitHub Actions와 로컬 launchd가 동시에 돌아도 `source_url` 기준 `ON CONFLICT DO NOTHING`으로 중복 데이터가 발생하지 않습니다.
 
 ---
