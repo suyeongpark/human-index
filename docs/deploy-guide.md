@@ -36,7 +36,7 @@ Settings → Secrets and variables → Actions → **Repository secrets**:
 | `.github/workflows/crawl-hankyung.yml` | `30 9 * * 1-5` | 평일 18:30 |
 | `.github/workflows/crawl-google-news.yml` | `0 0,6,12,18 * * *` | 09/15/21/03시 |
 
-> 커뮤니티 크롤러(`crawl-community.yml`)는 GitHub Actions cron 지연(수십분~수시간) 문제와 에펨코리아 IP 차단 이슈로 **로컬 launchd로 전환**했습니다.
+> 커뮤니티 크롤러는 GitHub Actions 워크플로를 사용하지 않고, cron 지연(수십분~수시간) 문제와 에펨코리아 IP 차단 이슈를 피하기 위해 **로컬 launchd로 실행**합니다.
 
 ### 수동 실행
 

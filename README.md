@@ -3,7 +3,7 @@
 > 커뮤니티 언급량 기반 주식 투자 시그널 분석 플랫폼
 
 [![Streamlit](https://img.shields.io/badge/Streamlit-Live-FF4B4B?logo=streamlit)](https://human-index-fbsfdag8sk7hcpfedhrm9h.streamlit.app/)
-[![GitHub Actions](https://img.shields.io/github/actions/workflow/status/suyeongpark/human-index/crawl-community.yml?label=크롤러&logo=github)](https://github.com/suyeongpark/human-index/actions)
+[![GitHub Actions](https://img.shields.io/github/actions/workflow/status/suyeongpark/human-index/crawl-google-news.yml?label=뉴스%20크롤러&logo=github)](https://github.com/suyeongpark/human-index/actions)
 
 **대중 의견(커뮤니티)**과 **전문가 의견(증권사 리포트/뉴스)**을 교차 분석하여, 시장의 관심이 집중되는 종목을 조기에 포착합니다.
 
@@ -19,7 +19,7 @@
 ## 아키텍처
 
 ```
-GitHub Actions (24/7)          Supabase              Streamlit Cloud
+Local Mac Mini / Actions      Supabase              Streamlit Cloud
 ┌──────────────────┐       ┌──────────────┐       ┌──────────────────┐
 │ 커뮤니티 크롤러    │       │              │       │                  │
 │ (MLBPark, 클리앙,  ├──────→│  PostgreSQL  │←──────┤  대시보드 (app.py) │
@@ -34,9 +34,9 @@ GitHub Actions (24/7)          Supabase              Streamlit Cloud
 
 | 소스 | 유형 | 수집 주기 |
 |------|------|----------|
-| MLBPark 불펜 (주식 카테고리) | 커뮤니티 | 1시간 |
-| 클리앙 투자게시판 | 커뮤니티 | 1시간 |
-| 에펨코리아 주식게시판 | 커뮤니티 | 1시간 |
+| MLBPark 불펜 (주식 카테고리) | 커뮤니티 | 30분 |
+| 클리앙 투자게시판 | 커뮤니티 | 30분 |
+| 에펨코리아 국내주식 / 해외주식 | 커뮤니티 | 30분 |
 | 한경 컨센서스 | 증권사 리포트 | 평일 1회 |
 | Google News RSS | 뉴스 기사 | 6시간 |
 
@@ -45,7 +45,7 @@ GitHub Actions (24/7)          Supabase              Streamlit Cloud
 - **Frontend**: [Streamlit](https://streamlit.io/) → Streamlit Cloud 배포
 - **Database**: PostgreSQL → [Supabase](https://supabase.com/) 클라우드
 - **Crawling**: Python (requests, BeautifulSoup, RSS XML)
-- **Scheduling**: GitHub Actions (cron)
+- **Scheduling**: macOS launchd (커뮤니티) + GitHub Actions (리포트/뉴스)
 - **Language**: Python 3.11
 
 ## 로컬 실행
@@ -55,8 +55,8 @@ GitHub Actions (24/7)          Supabase              Streamlit Cloud
 pip install -r requirements.txt
 
 # DB 접속 정보 설정
-cp docs/.env.example .streamlit/secrets.toml
-# secrets.toml에 Supabase 접속 정보 입력
+# 1) .streamlit/secrets.toml에 [database] 섹션 작성
+# 2) 또는 DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD 환경변수 설정
 
 # 대시보드 실행
 streamlit run app.py
@@ -69,12 +69,16 @@ streamlit run app.py
 ├── lib/                      # 대시보드 페이지 모듈
 │   ├── shared.py             # 공통: DB, 페이지네이션, 네비게이션
 │   ├── community.py          # 📢 커뮤니티 (대중 의견) 페이지
-│   ├── expert.py             # 🔬 전문가 (리포트/뉴스) 페이지
-│   └── combined.py           # 📊 종합 (교차 분석) 페이지
+│   ├── report.py             # 🔬 리포트 페이지
+│   ├── news.py               # 📰 뉴스 페이지
+│   └── overview.py           # 📊 종합/종목 검색 페이지
 ├── scripts/                  # 크롤러
+│   ├── data_loader.py        # CSV 데이터 로더
 │   ├── daily_worker.py       # 커뮤니티 통합 파이프라인
 │   ├── crawl_hankyung.py     # 한경 리포트 크롤러
-│   └── crawl_google_news.py  # Google News RSS 크롤러
+│   ├── crawl_google_news.py  # Google News RSS 크롤러
+│   └── import_tickers.py     # 종목 마스터 임포트
+├── tests/                    # pytest 테스트
 ├── .github/workflows/        # GitHub Actions 자동화
 └── docs/                     # 문서 (스키마, 배포 가이드)
 ```
@@ -83,7 +87,7 @@ streamlit run app.py
 
 - [프로젝트 구조](docs/project-structure.md) — 상세 모듈 설명
 - [DB 스키마](docs/db-schema.md) — 테이블 설계
-- [배포 가이드](docs/deployment-guide.md) — 클라우드 배포 & 운영
+- [배포 가이드](docs/deploy-guide.md) — 클라우드 배포 & 운영
 
 ## License
 

@@ -102,6 +102,13 @@ human-index/
 │   ├── crawl-hankyung.yml              # 평일 18:30 (KST)
 │   └── crawl-google-news.yml           # 6시간마다
 │
+├── tests/                              # pytest 테스트
+│   ├── conftest.py                     # 테스트 import 경로 설정
+│   ├── test_daily_worker.py            # 커뮤니티 파이프라인 단위 테스트
+│   ├── test_data_loader.py             # CSV 로더 테스트
+│   ├── test_google_news.py             # Google News RSS 파서 테스트
+│   └── test_hankyung.py                # 한경 컨센서스 파서 테스트
+│
 ├── docs/                               # 문서
 │   ├── project-structure.md            # 아키텍처 & 서비스 흐름 (이 문서)
 │   ├── deploy-guide.md                 # 배포 가이드
@@ -111,6 +118,9 @@ human-index/
 │   └── init-db.sql                     # DB 초기화 SQL
 │
 ├── requirements.txt
+├── requirements-dev.txt                 # 개발/테스트 의존성
+├── README.md                            # 프로젝트 개요
+├── GEMINI.md                            # AI 협업용 프로젝트 컨텍스트
 └── .python-version                     # Python 3.11
 ```
 
