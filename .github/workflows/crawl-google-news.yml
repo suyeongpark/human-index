@@ -21,7 +21,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install requests psycopg2-binary
+          pip install requests beautifulsoup4 psycopg2-binary
 
       - name: Run Google News crawler
         working-directory: scripts
