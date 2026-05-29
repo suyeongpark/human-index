@@ -23,7 +23,7 @@
 | `db_config.py` | DB 접속 설정 (secrets.toml → 환경변수 → 기본값 순) |
 | `crawler_config.py` | 크롤러 정적 설정 (커뮤니티 목록, HTTP 헤더, DATA_DIR 경로) |
 | `data_loader.py` | CSV 데이터 로더 (별칭, 감성 키워드, 오매칭 방지, 투자의견 등급) |
-| `daily_worker.py` | 커뮤니티 크롤링 통합 파이프라인 + 종목 추출 + 감성 분석 |
+| `daily_worker.py` | 커뮤니티 수집, 종목 추출, 통계 갱신 모드 실행 |
 | `crawl_hankyung.py` | 한경 컨센서스 리포트 크롤러 (독립 실행) |
 | `crawl_google_news.py` | Google News RSS 파서 (독립 실행) |
 | `import_tickers.py` | KRX/ETF/US 종목 마스터 임포트 |
@@ -126,6 +126,26 @@ SCORE_WEIGHT_NEUTRAL  = 1.0   # 중립
 
 1. `crawler_config.py`의 `COMMUNITIES` 배열에 설정 추가
 2. `daily_worker.py`의 `PARSERS` dict에 파서 함수 등록
+3. 필요하면 `launchd/`에 커뮤니티 전용 `--crawl-only` plist 추가
+
+### `daily_worker.py` 실행 모드
+
+| 옵션 | 동작 | 사용처 |
+|------|------|--------|
+| 없음 | 수집 + 분석 + 통계 갱신 전체 실행 | 수동 점검 |
+| `--community <name> --crawl-only` | 특정 커뮤니티 수집만 실행 | 커뮤니티별 launchd |
+| `--analyze-only` | 미분석 게시글 종목/감성 추출 | analyzer launchd |
+| `--stats-only` | 오늘/어제 일별 통계 갱신 | stats updater launchd |
+| `--postprocess-only` | 분석 + 통계 갱신 | 수동 후처리 |
+
+커뮤니티별 launchd는 수집만 수행해야 합니다. 분석/통계까지 같이 수행하면 커뮤니티별 작업이 늘어날수록 후처리가 중복 실행됩니다.
+
+### FM코리아 운영 규칙
+
+- FM코리아는 로컬 launchd에서만 실행합니다.
+- `crawler_config.py`의 FM코리아 `max_pages`는 기본 `10`입니다.
+- 차단/레이트리밋 응답(`status=430`)이 반복되면 주기보다 먼저 `max_pages`, 요청 딜레이, 중복 launchd 실행 여부를 확인합니다.
+- `FMKOREA_COOKIE`, `FMKOREA_USER_AGENT`가 필요하면 launchd 환경변수로만 관리하고 커밋하지 않습니다.
 
 ### 종목 별칭 추가
 
@@ -160,6 +180,7 @@ SCORE_WEIGHT_NEUTRAL  = 1.0   # 중립
 
 - `logs/` 디렉토리에 파일 + stdout 이중 출력
 - `LOG_DIR`은 `os.path.dirname(__file__)` 기반 상대 경로 (로컬/CI 호환)
+- launchd 템플릿 변경 시 `plutil -lint launchd/*.plist`로 검증
 
 ---
 

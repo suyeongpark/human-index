@@ -87,11 +87,17 @@ DB_PASSWORD = "your-password"
 ### 관리 명령어
 
 ```bash
+# 템플릿 설치
+install -m 644 launchd/*.plist ~/Library/LaunchAgents/
+
 # 등록 (예시)
 launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.humanindex.mlbpark-crawler.plist
 
 # 해제 (예시)
 launchctl bootout gui/$(id -u) ~/Library/LaunchAgents/com.humanindex.mlbpark-crawler.plist
+
+# 기존 통합 크롤러 해제
+launchctl bootout gui/$(id -u) ~/Library/LaunchAgents/com.humanindex.community-crawler.plist
 
 # 상태 확인
 launchctl list | grep humanindex
@@ -102,6 +108,17 @@ tail -f ~/Dev/Suyeongpark/human-index/logs/fmkorea_launchd_err.log
 
 커뮤니티별 launchd는 `daily_worker.py --community <name> --crawl-only`로 수집만 수행합니다.
 후처리는 `--analyze-only`, `--stats-only` 작업이 별도 주기로 실행합니다.
+
+### 작업별 운영 주기
+
+| 작업 | 주기 | 이유 |
+|------|------|------|
+| MLBPark / 클리앙 수집 | 30분 | 일반 커뮤니티 수집 |
+| FM코리아 수집 | 30분, `max_pages=10` | 430 차단/레이트리밋 완화 |
+| Analyzer | 15분 | 새 게시글 종목/감성을 대시보드에 빠르게 반영 |
+| Stats updater | 매일 00:10 | `mention_daily_stats` 오늘/어제 재계산 |
+
+Analyzer를 하루 1번만 실행하면 당일 신규 게시글은 종목/감성 분석이 지연됩니다. Stats updater는 대시보드 대부분이 `post_mentions`를 직접 조회하므로 하루 1번으로 운영합니다.
 
 ### 시스템 잠자기 비활성화
 
@@ -158,8 +175,9 @@ sudo pmset -c sleep 0
 | 증상 | 원인 | 해결 |
 |------|------|------|
 | GitHub Actions 크롤러 실패 | DB 접속 정보 오류 | Repository secrets 확인 (특히 `DB_USER` 형식) |
-| 에펨코리아 0건 수집 | GitHub Actions IP 차단 | 로컬 launchd로만 실행 (필수) |
+| 에펨코리아 0건 수집 | 430 차단/레이트리밋 또는 중복 launchd | `max_pages`, 전용 launchd, 로그의 `status=430` 확인 |
 | Streamlit Cloud 에러 | 패키지 호환성 | `requirements.txt` 확인, `.python-version` = 3.11 |
 | 로컬 launchd 미실행 | Mac 잠자기 모드 | `sudo pmset -c sleep 0` |
+| 분석/종목 컬럼 지연 | analyzer 미실행 | `com.humanindex.analyzer` 상태와 `logs/analyzer_launchd_err.log` 확인 |
 | 데이터 중복 | - | `source_url` 유니크 제약으로 자동 방지 |
 | cron 지연 (±20분) | GitHub Actions 특성 | 정상 동작, 정확한 타이밍 불필요 |

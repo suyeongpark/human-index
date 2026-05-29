@@ -10,7 +10,8 @@
 │  (커뮤니티 크롤러)     │       │  (PostgreSQL)    │       │  (대시보드)           │
 │                     ├───────→│                 │←──────┤                     │
 │ daily_worker.py     │INSERT  │  posts           │SELECT  │  app.py             │
-│                     │       │  *_mentions      │       │  lib/*.py           │
+│ launchd/*.plist     │UPDATE  │  *_mentions      │       │  lib/*.py           │
+│                     │       │  mention_stats   │       │                     │
 └─────────────────────┘       └─────────────────┘       └─────────────────────┘
 ┌─────────────────────┐
 │  GitHub Actions      │
@@ -28,27 +29,30 @@
 ```mermaid
 flowchart LR
     subgraph 수집["데이터 수집"]
-        A1[MLBPark / 클리앙 / 에펨코리아] -->|"로컬 launchd<br>daily_worker.py"| DB[(PostgreSQL)]
+        A1[MLBPark / 클리앙 / 에펨코리아] -->|"로컬 launchd<br>--crawl-only"| DB[(PostgreSQL)]
         A2[한경 컨센서스] -->|"GitHub Actions<br>crawl_hankyung.py"| DB
         A3[Google News RSS] -->|"GitHub Actions<br>crawl_google_news.py"| DB
     end
 
     subgraph 처리["종목 추출 & 감성 분석"]
-        DB -->|extract_tickers| PM[post_mentions]
+        DB -->|"launchd analyzer<br>--analyze-only"| PM[post_mentions]
+        PM -->|"launchd stats<br>--stats-only"| DS[mention_daily_stats]
         DB -->|crawl_hankyung 내장| EM[expert_article_mentions]
         DB -->|crawl_google_news 내장| EM
     end
 
     subgraph 대시보드["Streamlit 대시보드"]
         PM --> UI[app.py + lib/*.py]
+        DS --> UI
         EM --> UI
         UI --> V[종합 / 커뮤니티 / 리포트 / 뉴스]
     end
 ```
 
-1. **수집**: 로컬 launchd(커뮤니티) + GitHub Actions(리포트/뉴스)가 크롤러를 실행하여 게시글/리포트/뉴스 **제목**을 수집 → DB 저장
-2. **처리**: 제목에서 종목(ticker)을 자동 추출하고, 키워드 기반 긍정/부정/중립 감성 판정
-3. **분석**: Streamlit 대시보드에서 언급량 랭킹, 급상승 감지, 채널별 교차 분석 제공
+1. **수집**: 커뮤니티별 로컬 launchd와 GitHub Actions가 게시글/리포트/뉴스 **제목**을 수집 → DB 저장
+2. **처리**: 별도 analyzer가 커뮤니티 게시글 제목에서 종목(ticker)을 추출하고 감성 판정
+3. **집계**: 별도 stats updater가 오늘/어제 `mention_daily_stats`를 갱신
+4. **분석**: Streamlit 대시보드에서 언급량 랭킹, 급상승 감지, 채널별 교차 분석 제공
 
 ---
 
@@ -93,7 +97,7 @@ human-index/
 │   │   ├── skip_names.csv              # 오매칭 방지 목록
 │   │   ├── sentiment_words.csv         # 커뮤니티/뉴스 감성 키워드
 │   │   └── opinion_grades.csv          # 전문가 투자의견 등급 매핑
-│   ├── daily_worker.py                 # 커뮤니티 통합 파이프라인 (크롤링→추출→감성)
+│   ├── daily_worker.py                 # 커뮤니티 수집/분석/통계 모드 실행
 │   ├── crawl_hankyung.py               # 한경 컨센서스 크롤러
 │   ├── crawl_google_news.py            # Google News RSS 크롤러
 │   └── import_tickers.py               # KRX/ETF/US 종목 마스터 임포트
@@ -101,6 +105,13 @@ human-index/
 ├── .github/workflows/                  # GitHub Actions (리포트/뉴스만)
 │   ├── crawl-hankyung.yml              # 평일 18:30 (KST)
 │   └── crawl-google-news.yml           # 6시간마다
+│
+├── launchd/                            # 로컬 Mac Mini launchd 템플릿
+│   ├── com.humanindex.mlbpark-crawler.plist
+│   ├── com.humanindex.clien-crawler.plist
+│   ├── com.humanindex.fmkorea-crawler.plist
+│   ├── com.humanindex.analyzer.plist
+│   └── com.humanindex.stats-updater.plist
 │
 ├── tests/                              # pytest 테스트
 │   ├── conftest.py                     # 테스트 import 경로 설정
@@ -120,7 +131,8 @@ human-index/
 ├── requirements.txt
 ├── requirements-dev.txt                 # 개발/테스트 의존성
 ├── README.md                            # 프로젝트 개요
-├── GEMINI.md                            # AI 협업용 프로젝트 컨텍스트
+├── AGENTS.md                            # Codex/agent 협업용 프로젝트 컨텍스트
+├── GEMINI.md                            # AGENTS.md 안내용 호환 파일
 └── .python-version                     # Python 3.11
 ```
 
@@ -217,10 +229,11 @@ def page_overview(start_date, end_date):
 
 ```mermaid
 flowchart LR
-    A[커뮤니티 크롤링] --> B[posts 테이블 INSERT]
-    B --> C[종목 추출]
-    C --> D[감성 분석]
-    D --> E[post_mentions INSERT]
+    A[커뮤니티별 crawl-only] --> B[posts 테이블 INSERT]
+    B --> C[analyze-only]
+    C --> D[post_mentions INSERT]
+    D --> E[stats-only]
+    E --> F[mention_daily_stats UPSERT]
 ```
 
 - 4개 커뮤니티를 `crawler_config.py`의 `COMMUNITIES` 배열로 관리, `PARSERS` dict로 파서 함수 등록
@@ -228,6 +241,23 @@ flowchart LR
 - URL 기반 워터마크(`known_urls`)로 정확한 중복 판정 및 조기 종료
 - 종목 매칭: `ticker_map` 키를 `upper()`로 통일하여 대소문자 무시 매칭
 - `EXTRA_ALIASES` (1:1) + `MULTI_ALIASES` (1:N, 예: 삼닉→삼성전자+하이닉스) 지원
+- 실행 모드:
+  - `--crawl-only`: 지정 커뮤니티 수집만 수행
+  - `--analyze-only`: 미분석 게시글에서 종목/감성 추출
+  - `--stats-only`: 오늘/어제 일별 통계 갱신
+  - `--postprocess-only`: 분석 + 통계 갱신
+
+### 로컬 launchd 작업
+
+| Label | 명령 | 주기 |
+|------|------|------|
+| `com.humanindex.mlbpark-crawler` | `daily_worker.py --community mlbpark --crawl-only` | 30분 |
+| `com.humanindex.clien-crawler` | `daily_worker.py --community clien --crawl-only` | 30분 |
+| `com.humanindex.fmkorea-crawler` | `daily_worker.py --community fmkorea --crawl-only` | 30분 |
+| `com.humanindex.analyzer` | `daily_worker.py --analyze-only` | 15분 |
+| `com.humanindex.stats-updater` | `daily_worker.py --stats-only` | 매일 00:10 |
+
+FM코리아는 차단/레이트리밋이 잦아 `max_pages=10`으로 제한합니다.
 
 ### 전문가 파이프라인
 
@@ -259,10 +289,10 @@ flowchart LR
 | 테이블 | 설명 | 소스 |
 |--------|------|------|
 | `communities` | 수집 대상 커뮤니티 | 수동 등록 |
-| `posts` | 커뮤니티 게시글 | daily_worker |
+| `posts` | 커뮤니티 게시글 | daily_worker crawl-only |
 | `tickers` | 종목 마스터 (KRX, US) | import_tickers |
-| `post_mentions` | 게시글 → 종목 + 감성 | 자동 추출 |
-| `mention_daily_stats` | 일별 종목 통계 | 집계 |
+| `post_mentions` | 게시글 → 종목 + 감성 | analyzer |
+| `mention_daily_stats` | 일별 종목 통계 | stats updater |
 | `mention_trend_alerts` | 급상승 알림 | 집계 |
 | `expert_sources` | 전문가 데이터 소스 | 수동 등록 |
 | `expert_articles` | 리포트 + 뉴스 기사 | crawl_hankyung / crawl_google_news |
@@ -301,8 +331,11 @@ flowchart LR
 streamlit run app.py
 
 # 크롤링 수동 실행
-python scripts/daily_worker.py                    # 전체 커뮤니티 파이프라인
-python scripts/daily_worker.py --community fmkorea # 에펨코리아만
+python scripts/daily_worker.py --community mlbpark --crawl-only
+python scripts/daily_worker.py --community clien --crawl-only
+python scripts/daily_worker.py --community fmkorea --crawl-only
+python scripts/daily_worker.py --analyze-only
+python scripts/daily_worker.py --stats-only
 python scripts/crawl_hankyung.py                   # 한경 리포트 수집
 python scripts/crawl_google_news.py                # Google News 뉴스 수집
 

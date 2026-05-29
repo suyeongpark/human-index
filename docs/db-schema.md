@@ -484,7 +484,7 @@ COMMENT ON COLUMN expert_article_mentions.opinion IS '매수, 중립, 매도, Tr
 
 > [!NOTE]
 > ### 왜 본문(content)을 저장하지 않는가?
-> GEMINI.md 시나리오에 명시된 대로, 언급량 분석이 목적이므로 본문은 수집하지 않는다.
+> 프로젝트 운영 원칙상 언급량 분석이 목적이므로 본문은 수집하지 않는다.
 > 제목만으로 종목 추출 및 감성 분석을 수행하여 스토리지 비용을 최소화한다.
 
 > [!NOTE]
