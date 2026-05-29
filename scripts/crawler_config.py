@@ -94,7 +94,7 @@ COMMUNITIES = [
         "category": "주식",
         "crawl_url": "https://www.fmkorea.com/index.php?mid=stock&category=2997203870&page=",
         "posts_per_page": 20,
-        "max_pages": 50,
+        "max_pages": 10,
         "parser": "fmkorea",
     },
     {
@@ -103,7 +103,7 @@ COMMUNITIES = [
         "category": "주식",
         "crawl_url": "https://www.fmkorea.com/index.php?mid=stock&category=2997204381&page=",
         "posts_per_page": 20,
-        "max_pages": 50,
+        "max_pages": 10,
         "parser": "fmkorea",
     },
 ]

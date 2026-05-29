@@ -1,6 +1,7 @@
 from datetime import datetime
 
 import daily_worker
+from crawler_config import COMMUNITIES
 
 
 def test_parse_post_date_supports_known_formats():
@@ -30,6 +31,13 @@ def test_build_page_url_for_each_community_type():
         {"parser": "fmkorea", "crawl_url": "https://example.test/page="},
         0,
     ) == "https://example.test/page=1"
+
+
+def test_fmkorea_crawl_depth_is_capped():
+    fmkorea_sources = [c for c in COMMUNITIES if c["parser"] == "fmkorea"]
+
+    assert fmkorea_sources
+    assert all(c["max_pages"] == 10 for c in fmkorea_sources)
 
 
 class FakeTickerCursor:

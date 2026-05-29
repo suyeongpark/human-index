@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+    "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.humanindex.stats-updater</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/opt/anaconda3/bin/python3</string>
+        <string>/Users/suyeongpark/Dev/Suyeongpark/human-index/scripts/daily_worker.py</string>
+        <string>--stats-only</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>/Users/suyeongpark/Dev/Suyeongpark/human-index/scripts</string>
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>0</integer>
+        <key>Minute</key>
+        <integer>10</integer>
+    </dict>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/opt/anaconda3/bin:/usr/local/bin:/usr/bin:/bin</string>
+    </dict>
+    <key>StandardOutPath</key>
+    <string>/Users/suyeongpark/Dev/Suyeongpark/human-index/logs/stats_launchd.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/suyeongpark/Dev/Suyeongpark/human-index/logs/stats_launchd_err.log</string>
+</dict>
+</plist>

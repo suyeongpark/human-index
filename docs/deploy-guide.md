@@ -77,24 +77,31 @@ DB_PASSWORD = "your-password"
 
 ```
 ~/Library/LaunchAgents/
-└── com.humanindex.community-crawler.plist  # 전체 커뮤니티 (30분)
+├── com.humanindex.mlbpark-crawler.plist    # MLBPark 수집만 (30분)
+├── com.humanindex.clien-crawler.plist      # 클리앙 수집만 (30분)
+├── com.humanindex.fmkorea-crawler.plist    # 에펨코리아 수집만 (30분)
+├── com.humanindex.analyzer.plist           # 미분석 게시글 종목 추출 (15분)
+└── com.humanindex.stats-updater.plist      # 오늘/어제 통계 갱신 (매일 00:10)
 ```
 
 ### 관리 명령어
 
 ```bash
-# 등록
-launchctl load ~/Library/LaunchAgents/com.humanindex.community-crawler.plist
+# 등록 (예시)
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.humanindex.mlbpark-crawler.plist
 
-# 해제
-launchctl unload ~/Library/LaunchAgents/com.humanindex.community-crawler.plist
+# 해제 (예시)
+launchctl bootout gui/$(id -u) ~/Library/LaunchAgents/com.humanindex.mlbpark-crawler.plist
 
 # 상태 확인
 launchctl list | grep humanindex
 
 # 로그 확인
-tail -f ~/Dev/Suyeongpark/human-index/logs/community_launchd.log
+tail -f ~/Dev/Suyeongpark/human-index/logs/fmkorea_launchd_err.log
 ```
+
+커뮤니티별 launchd는 `daily_worker.py --community <name> --crawl-only`로 수집만 수행합니다.
+후처리는 `--analyze-only`, `--stats-only` 작업이 별도 주기로 실행합니다.
 
 ### 시스템 잠자기 비활성화
 

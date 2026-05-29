@@ -555,17 +555,24 @@ def update_daily_stats(cur, target_date: date = None) -> int:
 # 메인 파이프라인
 # ═══════════════════════════════════════════════════════
 
-def run_pipeline(community_filter=None):
-    """일일 파이프라인 실행. community_filter: 파서명(mlbpark/clien/fmkorea)으로 필터링"""
+def run_pipeline(community_filter=None, run_crawl=True, run_analyze=True, run_stats=True):
+    """파이프라인 실행.
+
+    community_filter: 파서명(mlbpark/clien/fmkorea)으로 크롤링 대상 필터링.
+    run_crawl/run_analyze/run_stats로 수집, 분석, 통계 단계를 분리 실행할 수 있다.
+    """
     start_time = datetime.now()
     log.info("=" * 60)
     log.info(f"Human Index Daily Worker 시작 - {start_time.isoformat()}")
     if community_filter:
         log.info(f"  필터: {community_filter}")
+    log.info(
+        f"  단계: crawl={run_crawl}, analyze={run_analyze}, stats={run_stats}"
+    )
     log.info("=" * 60)
 
     targets = COMMUNITIES
-    if community_filter:
+    if run_crawl and community_filter:
         targets = [c for c in COMMUNITIES if c["parser"] == community_filter]
         if not targets:
             log.error(f"  알 수 없는 커뮤니티: {community_filter}")
@@ -573,35 +580,46 @@ def run_pipeline(community_filter=None):
 
     conn = psycopg2.connect(**DB_CONFIG)
     try:
-        # STEP 1: 크롤링
-        log.info("\n📡 STEP 1: 크롤링")
         total_new = 0
-        for community in targets:
-            log.info(f"  [{community['name']}] 크롤링 시작...")
-            with conn:
-                with conn.cursor() as cur:
-                    new_posts = crawl_community(cur, community)
-                    total_new += new_posts
-                    log.info(f"  [{community['name']}] 완료: {new_posts}건 신규")
+        mentions = 0
+
+        # STEP 1: 크롤링
+        if run_crawl:
+            log.info("\n📡 STEP 1: 크롤링")
+            for community in targets:
+                log.info(f"  [{community['name']}] 크롤링 시작...")
+                with conn:
+                    with conn.cursor() as cur:
+                        new_posts = crawl_community(cur, community)
+                        total_new += new_posts
+                        log.info(f"  [{community['name']}] 완료: {new_posts}건 신규")
+        else:
+            log.info("\n📡 STEP 1: 크롤링 건너뜀")
 
         # STEP 2: 종목 추출
-        log.info("\n🔍 STEP 2: 종목 추출 + 감성 분석")
-        with conn:
-            with conn.cursor() as cur:
-                mentions = extract_tickers_for_new_posts(cur)
-                log.info(f"  {mentions}건 종목 언급 추출")
+        if run_analyze:
+            log.info("\n🔍 STEP 2: 종목 추출 + 감성 분석")
+            with conn:
+                with conn.cursor() as cur:
+                    mentions = extract_tickers_for_new_posts(cur)
+                    log.info(f"  {mentions}건 종목 언급 추출")
+        else:
+            log.info("\n🔍 STEP 2: 종목 추출 + 감성 분석 건너뜀")
 
         # STEP 3: 통계 갱신 (오늘 + 어제)
-        log.info("\n📊 STEP 3: 일별 통계 갱신")
-        with conn:
-            with conn.cursor() as cur:
-                today = date.today()
-                yesterday = today - timedelta(days=1)
+        if run_stats:
+            log.info("\n📊 STEP 3: 일별 통계 갱신")
+            with conn:
+                with conn.cursor() as cur:
+                    today = date.today()
+                    yesterday = today - timedelta(days=1)
 
-                stats_today = update_daily_stats(cur, today)
-                stats_yesterday = update_daily_stats(cur, yesterday)
-                log.info(f"  오늘({today}): {stats_today}건")
-                log.info(f"  어제({yesterday}): {stats_yesterday}건")
+                    stats_today = update_daily_stats(cur, today)
+                    stats_yesterday = update_daily_stats(cur, yesterday)
+                    log.info(f"  오늘({today}): {stats_today}건")
+                    log.info(f"  어제({yesterday}): {stats_yesterday}건")
+        else:
+            log.info("\n📊 STEP 3: 일별 통계 갱신 건너뜀")
 
         # 결과 요약
         elapsed = (datetime.now() - start_time).total_seconds()
@@ -633,5 +651,20 @@ if __name__ == "__main__":
         choices=["mlbpark", "clien", "fmkorea"],
         help="특정 커뮤니티만 크롤링 (미지정 시 전체)",
     )
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--crawl-only", action="store_true", help="크롤링만 실행")
+    mode.add_argument("--analyze-only", action="store_true", help="미분석 게시글 종목 추출만 실행")
+    mode.add_argument("--stats-only", action="store_true", help="오늘/어제 일별 통계 갱신만 실행")
+    mode.add_argument("--postprocess-only", action="store_true", help="종목 추출과 통계 갱신만 실행")
     args = parser.parse_args()
-    run_pipeline(community_filter=args.community)
+
+    if args.crawl_only:
+        run_pipeline(community_filter=args.community, run_crawl=True, run_analyze=False, run_stats=False)
+    elif args.analyze_only:
+        run_pipeline(community_filter=None, run_crawl=False, run_analyze=True, run_stats=False)
+    elif args.stats_only:
+        run_pipeline(community_filter=None, run_crawl=False, run_analyze=False, run_stats=True)
+    elif args.postprocess_only:
+        run_pipeline(community_filter=None, run_crawl=False, run_analyze=True, run_stats=True)
+    else:
+        run_pipeline(community_filter=args.community)
