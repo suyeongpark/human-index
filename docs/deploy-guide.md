@@ -11,7 +11,7 @@
 | **Streamlit Cloud** | 대시보드 | [human-index.streamlit.app](https://human-index-fbsfdag8sk7hcpfedhrm9h.streamlit.app/) |
 | **Supabase** | PostgreSQL DB | 서울 리전, Session Pooler 사용 |
 | **GitHub Actions** | 리포트/뉴스 크롤러 | Repository secrets로 DB 접속 |
-| **macOS launchd** | 커뮤니티 크롤러 | 로컬 Mac Mini에서 30분마다 실행 |
+| **macOS launchd** | 커뮤니티 크롤러 | 로컬 Mac Mini에서 커뮤니티별 주기로 실행 |
 
 ---
 
@@ -77,9 +77,9 @@ DB_PASSWORD = "your-password"
 
 ```
 ~/Library/LaunchAgents/
-├── com.humanindex.mlbpark-crawler.plist    # MLBPark 수집만 (30분)
+├── com.humanindex.mlbpark-crawler.plist    # MLBPark 수집만 (5분)
 ├── com.humanindex.clien-crawler.plist      # 클리앙 수집만 (30분)
-├── com.humanindex.fmkorea-crawler.plist    # 에펨코리아 수집만 (30분)
+├── com.humanindex.fmkorea-crawler.plist    # 에펨코리아 수집만 (5분)
 ├── com.humanindex.analyzer.plist           # 미분석 게시글 종목 추출 (15분)
 └── com.humanindex.stats-updater.plist      # 오늘/어제 통계 갱신 (매일 00:10)
 ```
@@ -113,8 +113,9 @@ tail -f ~/Dev/Suyeongpark/human-index/logs/fmkorea_launchd_err.log
 
 | 작업 | 주기 | 이유 |
 |------|------|------|
-| MLBPark / 클리앙 수집 | 30분 | 일반 커뮤니티 수집 |
-| FM코리아 수집 | 30분, `max_pages=10` | 430 차단/레이트리밋 완화 |
+| MLBPark 수집 | 5분, `max_pages=1` | 최근 7일 기준 5분 글 생성량 p90이 5건 수준이라 얕은 수집으로 충분 |
+| 클리앙 수집 | 30분 | 일반 커뮤니티 수집 |
+| FM코리아 수집 | 5분, `max_pages=1` | 짧은 주기/얕은 수집으로 430 차단 완화 |
 | Analyzer | 15분 | 새 게시글 종목/감성을 대시보드에 빠르게 반영 |
 | Stats updater | 매일 00:10 | `mention_daily_stats` 오늘/어제 재계산 |
 

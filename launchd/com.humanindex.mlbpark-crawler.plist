@@ -16,7 +16,7 @@
     <key>WorkingDirectory</key>
     <string>/Users/suyeongpark/Dev/Suyeongpark/human-index/scripts</string>
     <key>StartInterval</key>
-    <integer>1800</integer>
+    <integer>300</integer>
     <key>EnvironmentVariables</key>
     <dict>
         <key>PATH</key>

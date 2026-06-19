@@ -216,10 +216,10 @@ def page_overview(start_date, end_date):
 
 | 소스 | 유형 | 크롤러 | 실행 환경 | 주기 |
 |------|------|--------|----------|------|
-| MLBPark 불펜 (주식) | 커뮤니티 | `daily_worker.py` | 로컬 launchd | 30분 |
+| MLBPark 불펜 (주식) | 커뮤니티 | `daily_worker.py` | 로컬 launchd | 5분 |
 | 클리앙 투자게시판 | 커뮤니티 | `daily_worker.py` | 로컬 launchd | 30분 |
-| 에펨코리아 국내주식 | 커뮤니티 | `daily_worker.py` | 로컬 launchd | 30분 |
-| 에펨코리아 해외주식 | 커뮤니티 | `daily_worker.py` | 로컬 launchd | 30분 |
+| 에펨코리아 국내주식 | 커뮤니티 | `daily_worker.py` | 로컬 launchd | 5분 |
+| 에펨코리아 해외주식 | 커뮤니티 | `daily_worker.py` | 로컬 launchd | 5분 |
 | 한경 컨센서스 | 증권사 리포트 | `crawl_hankyung.py` | GitHub Actions | 평일 1회 |
 | Google News RSS | 뉴스 기사 | `crawl_google_news.py` | GitHub Actions | 6시간 |
 
@@ -251,13 +251,13 @@ flowchart LR
 
 | Label | 명령 | 주기 |
 |------|------|------|
-| `com.humanindex.mlbpark-crawler` | `daily_worker.py --community mlbpark --crawl-only` | 30분 |
+| `com.humanindex.mlbpark-crawler` | `daily_worker.py --community mlbpark --crawl-only` | 5분 |
 | `com.humanindex.clien-crawler` | `daily_worker.py --community clien --crawl-only` | 30분 |
-| `com.humanindex.fmkorea-crawler` | `daily_worker.py --community fmkorea --crawl-only` | 30분 |
+| `com.humanindex.fmkorea-crawler` | `daily_worker.py --community fmkorea --crawl-only` | 5분 |
 | `com.humanindex.analyzer` | `daily_worker.py --analyze-only` | 15분 |
 | `com.humanindex.stats-updater` | `daily_worker.py --stats-only` | 매일 00:10 |
 
-FM코리아는 차단/레이트리밋이 잦아 `max_pages=10`으로 제한합니다.
+MLBPark와 FM코리아는 5분 주기로 `max_pages=1`만 수집합니다. FM코리아는 차단/레이트리밋이 잦아 얕은 수집을 유지합니다.
 
 ### 전문가 파이프라인
 

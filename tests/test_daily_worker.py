@@ -37,7 +37,14 @@ def test_fmkorea_crawl_depth_is_capped():
     fmkorea_sources = [c for c in COMMUNITIES if c["parser"] == "fmkorea"]
 
     assert fmkorea_sources
-    assert all(c["max_pages"] == 10 for c in fmkorea_sources)
+    assert all(c["max_pages"] == 1 for c in fmkorea_sources)
+
+
+def test_mlbpark_crawl_depth_is_capped():
+    mlbpark_sources = [c for c in COMMUNITIES if c["parser"] == "mlbpark"]
+
+    assert mlbpark_sources
+    assert all(c["max_pages"] == 1 for c in mlbpark_sources)
 
 
 class FakeTickerCursor:

@@ -143,7 +143,8 @@ SCORE_WEIGHT_NEUTRAL  = 1.0   # 중립
 ### FM코리아 운영 규칙
 
 - FM코리아는 로컬 launchd에서만 실행합니다.
-- `crawler_config.py`의 FM코리아 `max_pages`는 기본 `10`입니다.
+- `crawler_config.py`의 FM코리아 `max_pages`는 기본 `1`입니다.
+- FM코리아 launchd는 5분 주기로 얕게 수집합니다. 밀린 글 복구가 필요하면 수동 백필로 페이지 수를 늘려 실행합니다.
 - 차단/레이트리밋 응답(`status=430`)이 반복되면 주기보다 먼저 `max_pages`, 요청 딜레이, 중복 launchd 실행 여부를 확인합니다.
 - `FMKOREA_COOKIE`, `FMKOREA_USER_AGENT`가 필요하면 launchd 환경변수로만 관리하고 커밋하지 않습니다.
 
