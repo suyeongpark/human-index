@@ -87,7 +87,29 @@ CREATE TABLE mention_trend_alerts (
 CREATE INDEX ix_trend_alerts_ticker_date ON mention_trend_alerts (ticker_id, alert_date);
 CREATE INDEX ix_trend_alerts_unread ON mention_trend_alerts (is_read) WHERE is_read = FALSE;
 
--- 7. expert_sources
+-- 7. crawler_health_alerts
+CREATE TABLE crawler_health_alerts (
+    id                  BIGSERIAL       PRIMARY KEY,
+    alert_key           VARCHAR(100)    NOT NULL UNIQUE,
+    source              VARCHAR(50)     NOT NULL,
+    status              VARCHAR(20)     NOT NULL DEFAULT 'open',
+    severity            VARCHAR(20)     NOT NULL DEFAULT 'warning',
+    title               TEXT            NOT NULL,
+    message             TEXT            NOT NULL,
+    first_detected_at   TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
+    last_detected_at    TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
+    last_notified_at    TIMESTAMPTZ,
+    resolved_at         TIMESTAMPTZ,
+    resolution_note     TEXT,
+    details             JSONB           NOT NULL DEFAULT '{}'::jsonb,
+    created_at          TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
+    updated_at          TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
+    CONSTRAINT ck_crawler_health_alerts_status CHECK (status IN ('open', 'resolved'))
+);
+
+CREATE INDEX ix_crawler_health_alerts_status ON crawler_health_alerts (status, source);
+
+-- 8. expert_sources
 CREATE TABLE expert_sources (
     id          SERIAL          PRIMARY KEY,
     name        VARCHAR(100)    NOT NULL UNIQUE,
@@ -99,7 +121,7 @@ CREATE TABLE expert_sources (
 
 COMMENT ON COLUMN expert_sources.source_type IS 'report: 증권사 리포트, article: 뉴스 기사';
 
--- 8. expert_articles
+-- 9. expert_articles
 CREATE TABLE expert_articles (
     id              BIGSERIAL       PRIMARY KEY,
     source_id       INTEGER         NOT NULL REFERENCES expert_sources(id),
@@ -116,7 +138,7 @@ CREATE INDEX ix_expert_articles_source_date ON expert_articles (source_id, publi
 CREATE INDEX ix_expert_articles_securities_firm ON expert_articles (securities_firm) WHERE securities_firm IS NOT NULL;
 CREATE UNIQUE INDEX uq_expert_articles_source_url ON expert_articles (source_url) WHERE source_url IS NOT NULL;
 
--- 9. expert_article_mentions
+-- 10. expert_article_mentions
 CREATE TABLE expert_article_mentions (
     id          BIGSERIAL       PRIMARY KEY,
     article_id  BIGINT          NOT NULL REFERENCES expert_articles(id) ON DELETE CASCADE,

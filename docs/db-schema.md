@@ -80,6 +80,20 @@ erDiagram
         timestamptz created_at
     }
 
+    crawler_health_alerts {
+        bigint id PK
+        varchar alert_key UK
+        varchar source
+        varchar status
+        varchar severity
+        text title
+        text message
+        timestamptz first_detected_at
+        timestamptz last_detected_at
+        timestamptz last_notified_at
+        timestamptz resolved_at
+    }
+
     expert_sources {
         int id PK
         varchar name
@@ -246,9 +260,38 @@ erDiagram
 
 ---
 
+### 🛠 운영 알림 (Operational Alerts)
+
+### 7. `crawler_health_alerts` — 크롤러 상태 알림
+
+크롤러 쿠키 만료, 차단 응답 등 운영자가 확인해야 하는 상태 알림을 저장한다.
+
+| Column | Type | Constraint | Description |
+|--------|------|------------|-------------|
+| `id` | `BIGSERIAL` | `PK` | 고유 ID |
+| `alert_key` | `VARCHAR(100)` | `NOT NULL, UNIQUE` | 알림 종류별 고정 키 (예: `fmkorea_cookie_430`) |
+| `source` | `VARCHAR(50)` | `NOT NULL` | 알림 출처 (예: `fmkorea`) |
+| `status` | `VARCHAR(20)` | `NOT NULL DEFAULT 'open'` | `open` / `resolved` |
+| `severity` | `VARCHAR(20)` | `NOT NULL DEFAULT 'warning'` | 심각도 |
+| `title` | `TEXT` | `NOT NULL` | 알림 제목 |
+| `message` | `TEXT` | `NOT NULL` | 알림 메시지 |
+| `first_detected_at` | `TIMESTAMPTZ` | `NOT NULL DEFAULT NOW()` | 최초 감지 시각 |
+| `last_detected_at` | `TIMESTAMPTZ` | `NOT NULL DEFAULT NOW()` | 마지막 감지 시각 |
+| `last_notified_at` | `TIMESTAMPTZ` | | 마지막 macOS 알림 발송 시각 |
+| `resolved_at` | `TIMESTAMPTZ` | | 처리 완료 시각 |
+| `resolution_note` | `TEXT` | | 처리 메모 |
+| `details` | `JSONB` | `NOT NULL DEFAULT '{}'` | 감지 상세 정보 |
+| `created_at` | `TIMESTAMPTZ` | `NOT NULL DEFAULT NOW()` | 생성 일시 |
+| `updated_at` | `TIMESTAMPTZ` | `NOT NULL DEFAULT NOW()` | 수정 일시 |
+
+**Indexes:**
+- `ix_crawler_health_alerts_status` — `(status, source)` : 열린 운영 알림 조회
+
+---
+
 ### 🔬 전문가 의견 (Expert Opinion)
 
-### 7. `expert_sources` — 전문가 소스
+### 8. `expert_sources` — 전문가 소스
 
 증권사 리포트, 뉴스 기사 등 전문가 의견의 출처를 관리한다.
 
@@ -263,7 +306,7 @@ erDiagram
 
 ---
 
-### 8. `expert_articles` — 전문가 리포트·기사
+### 9. `expert_articles` — 전문가 리포트·기사
 
 증권사 리포트 및 뉴스 기사의 메타 정보(제목, 작성자, 증권사, 날짜)를 저장한다. 커뮤니티 `posts`의 전문가 버전.
 
@@ -286,7 +329,7 @@ erDiagram
 
 ---
 
-### 9. `expert_article_mentions` — 리포트·기사별 종목 언급 & 감성 분석
+### 10. `expert_article_mentions` — 리포트·기사별 종목 언급 & 감성 분석
 
 리포트/기사 제목에서 추출된 종목 언급과 감성 분석 결과를 저장한다. 커뮤니티 `post_mentions`의 전문가 버전.
 
@@ -427,10 +470,36 @@ CREATE INDEX ix_trend_alerts_ticker_date ON mention_trend_alerts (ticker_id, ale
 CREATE INDEX ix_trend_alerts_unread ON mention_trend_alerts (is_read) WHERE is_read = FALSE;
 
 -- =============================================
+-- 운영 알림 (Operational Alerts)
+-- =============================================
+
+-- 7. crawler_health_alerts
+CREATE TABLE crawler_health_alerts (
+    id                  BIGSERIAL       PRIMARY KEY,
+    alert_key           VARCHAR(100)    NOT NULL UNIQUE,
+    source              VARCHAR(50)     NOT NULL,
+    status              VARCHAR(20)     NOT NULL DEFAULT 'open',
+    severity            VARCHAR(20)     NOT NULL DEFAULT 'warning',
+    title               TEXT            NOT NULL,
+    message             TEXT            NOT NULL,
+    first_detected_at   TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
+    last_detected_at    TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
+    last_notified_at    TIMESTAMPTZ,
+    resolved_at         TIMESTAMPTZ,
+    resolution_note     TEXT,
+    details             JSONB           NOT NULL DEFAULT '{}'::jsonb,
+    created_at          TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
+    updated_at          TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
+    CONSTRAINT ck_crawler_health_alerts_status CHECK (status IN ('open', 'resolved'))
+);
+
+CREATE INDEX ix_crawler_health_alerts_status ON crawler_health_alerts (status, source);
+
+-- =============================================
 -- 전문가 의견 (Expert Opinion)
 -- =============================================
 
--- 7. expert_sources
+-- 8. expert_sources
 CREATE TABLE expert_sources (
     id          SERIAL          PRIMARY KEY,
     name        VARCHAR(100)    NOT NULL UNIQUE,
@@ -442,7 +511,7 @@ CREATE TABLE expert_sources (
 
 COMMENT ON COLUMN expert_sources.source_type IS 'report: 증권사 리포트, article: 뉴스 기사';
 
--- 8. expert_articles
+-- 9. expert_articles
 CREATE TABLE expert_articles (
     id              BIGSERIAL       PRIMARY KEY,
     source_id       INTEGER         NOT NULL REFERENCES expert_sources(id),
@@ -459,7 +528,7 @@ CREATE INDEX ix_expert_articles_published_date ON expert_articles (published_dat
 CREATE INDEX ix_expert_articles_securities_firm ON expert_articles (securities_firm) WHERE securities_firm IS NOT NULL;
 CREATE UNIQUE INDEX uq_expert_articles_source_url ON expert_articles (source_url) WHERE source_url IS NOT NULL;
 
--- 9. expert_article_mentions
+-- 10. expert_article_mentions
 CREATE TABLE expert_article_mentions (
     id          BIGSERIAL       PRIMARY KEY,
     article_id  BIGINT          NOT NULL REFERENCES expert_articles(id) ON DELETE CASCADE,

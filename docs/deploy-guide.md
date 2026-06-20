@@ -139,6 +139,12 @@ sudo pmset -c sleep 0
 
 쿠키는 계정 정보와 연결될 수 있으므로 저장소에 커밋하지 말고, 로컬 launchd 환경변수나 비밀 설정으로만 관리합니다.
 
+FM코리아 헬스체크는 연속 `status=430`을 감지하면 `crawler_health_alerts`에 `fmkorea_cookie_430` 알림을 열고, 처리 완료 전까지 30분마다 macOS 알림을 반복합니다. 쿠키를 갱신하고 정상 수집을 확인한 뒤 아래 명령으로 알림을 닫습니다.
+
+```bash
+python scripts/check_fmkorea_health.py --resolve
+```
+
 > GitHub Actions와 로컬 launchd가 동시에 돌아도 `source_url` 기준 `ON CONFLICT DO NOTHING`으로 중복 데이터가 발생하지 않습니다.
 
 ---
@@ -176,7 +182,7 @@ sudo pmset -c sleep 0
 | 증상 | 원인 | 해결 |
 |------|------|------|
 | GitHub Actions 크롤러 실패 | DB 접속 정보 오류 | Repository secrets 확인 (특히 `DB_USER` 형식) |
-| 에펨코리아 0건 수집 | 430 차단/레이트리밋 또는 중복 launchd | `max_pages`, 전용 launchd, 로그의 `status=430` 확인 |
+| 에펨코리아 0건 수집 | 430 차단/레이트리밋 또는 중복 launchd | `crawler_health_alerts`, 전용 launchd, 로그의 `status=430` 확인 |
 | Streamlit Cloud 에러 | 패키지 호환성 | `requirements.txt` 확인, `.python-version` = 3.11 |
 | 로컬 launchd 미실행 | Mac 잠자기 모드 | `sudo pmset -c sleep 0` |
 | 분석/종목 컬럼 지연 | analyzer 미실행 | `com.humanindex.analyzer` 상태와 `logs/analyzer_launchd_err.log` 확인 |
