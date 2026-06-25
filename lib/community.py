@@ -67,6 +67,7 @@ SQL_MENTION_RANKING = """
     WHERE p.post_date BETWEEN %s AND %s
     GROUP BY t.symbol, t.name, t.market
     ORDER BY "⭐ 가중 점수" DESC
+    LIMIT 500
 """
 
 SQL_SURGE = """
@@ -94,6 +95,7 @@ SQL_SURGE = """
     JOIN tickers t ON t.id = COALESCE(r.ticker_id, p.ticker_id)
     WHERE t.market NOT IN ('THEME', 'CRYPTO')
     ORDER BY COALESCE(r.cnt, 0) - COALESCE(p.cnt, 0) DESC
+    LIMIT 500
 """
 
 SQL_AUTHOR_RANKING = """
@@ -101,6 +103,7 @@ SQL_AUTHOR_RANKING = """
     FROM posts
     WHERE post_date BETWEEN %s AND %s
     GROUP BY author ORDER BY COUNT(*) DESC
+    LIMIT 500
 """
 
 SQL_COMMUNITY_LIST = """

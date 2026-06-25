@@ -29,22 +29,45 @@ DB_CONFIG = {
     "password": _get_config("DB_PASSWORD", ""),
 }
 
+QUERY_CACHE_TTL_SECONDS = int(os.environ.get("QUERY_CACHE_TTL_SECONDS", "300"))
+
 
 @st.cache_resource
 def get_connection():
     return psycopg2.connect(**DB_CONFIG)
 
 
+def _normalize_params(params):
+    if params is None:
+        return tuple()
+    if isinstance(params, tuple):
+        return params
+    if isinstance(params, list):
+        return tuple(params)
+    return (params,)
+
+
+@st.cache_data(ttl=QUERY_CACHE_TTL_SECONDS, show_spinner=False)
+def _run_query_cached(query, params_tuple):
+    conn = get_connection()
+    params = params_tuple or None
+    return pd.read_sql_query(query, conn, params=params)
+
+
+def clear_query_cache():
+    _run_query_cached.clear()
+
+
 def run_query(query, params=None):
     """쿼리 실행 후 DataFrame 반환"""
-    conn = get_connection()
+    params_tuple = _normalize_params(params)
     try:
-        return pd.read_sql_query(query, conn, params=params)
+        return _run_query_cached(query, params_tuple).copy()
     except Exception:
         # 연결 끊겼을 때 재연결
         st.cache_resource.clear()
-        conn = get_connection()
-        return pd.read_sql_query(query, conn, params=params)
+        clear_query_cache()
+        return _run_query_cached(query, params_tuple).copy()
 
 
 def navigate_to(target_page, ticker_symbol=None, search_keyword=None, filter_symbol=None):
@@ -98,6 +121,7 @@ def pagination_bar(page, total_pages, session_key, prefix, show_refresh=False):
     if show_refresh:
         with cols[7]:
             if st.button("↻", key=f"{prefix}_refresh"):
+                clear_query_cache()
                 st.rerun()
 
 

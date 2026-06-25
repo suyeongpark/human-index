@@ -86,6 +86,7 @@ SQL_SURGE = """
     JOIN tickers t ON t.id = COALESCE(r.ticker_id, p.ticker_id)
     WHERE t.market NOT IN ('THEME', 'CRYPTO')
     ORDER BY COALESCE(r.cnt, 0) - COALESCE(p.cnt, 0) DESC
+    LIMIT 500
 """
 
 SQL_RANKING = """
@@ -109,6 +110,7 @@ SQL_RANKING = """
     WHERE ea.published_date BETWEEN %s AND %s AND es.source_type = 'report'
     GROUP BY t.symbol, t.name
     ORDER BY "⭐ 가중 점수" DESC
+    LIMIT 500
 """
 
 SQL_FIRM_LIST = """
