@@ -49,7 +49,7 @@ from data_loader import (
 
 SQL_FIND_COMMUNITY = "SELECT id FROM communities WHERE name = %s"
 SQL_INSERT_COMMUNITY = "INSERT INTO communities (name, base_url, category) VALUES (%s, %s, %s) RETURNING id"
-SQL_KNOWN_URLS = "SELECT source_url FROM posts WHERE community_id = %s ORDER BY id DESC LIMIT 1000"
+SQL_KNOWN_URLS = "SELECT source_url FROM posts WHERE community_id = %s ORDER BY id DESC LIMIT %s"
 SQL_INSERT_POST = """
     INSERT INTO posts (community_id, title, author, post_date, source_url)
     VALUES (%s, %s, %s, %s, %s)
@@ -62,6 +62,7 @@ SQL_UNANALYZED_POSTS = """
     LEFT JOIN post_mentions pm ON pm.post_id = p.id
     WHERE pm.id IS NULL
     ORDER BY p.id
+    LIMIT %s
 """
 SQL_INSERT_MENTION = """
     INSERT INTO post_mentions (post_id, ticker_id, sentiment)
@@ -101,6 +102,7 @@ SQL_INSERT_TOTAL_STATS = """
 """
 SQL_COUNT_POSTS = "SELECT COUNT(*) FROM posts"
 SQL_COUNT_MENTIONS = "SELECT COUNT(*) FROM post_mentions"
+ANALYZE_BATCH_SIZE = int(os.environ.get("ANALYZE_BATCH_SIZE", "1000"))
 
 
 # ═══════════════════════════════════════════════════════
@@ -125,6 +127,12 @@ def ensure_community(cur, community: dict) -> int:
         (community["name"], community["base_url"], community["category"]),
     )
     return cur.fetchone()[0]
+
+
+def known_url_limit(community: dict) -> int:
+    """중복 판정용 최근 URL 로드량. 얕은 수집은 적게, 깊은 수집은 넉넉히."""
+    crawl_depth = community.get("max_pages", 1) * community.get("posts_per_page", 30)
+    return min(1000, max(100, crawl_depth * 3))
 
 
 def parse_post_date(date_text: str) -> datetime:
@@ -363,7 +371,7 @@ def crawl_community(cur, community: dict) -> int:
         return 0
 
     # 최근 수집된 URL을 미리 로드하여 정확한 중복 판정
-    cur.execute(SQL_KNOWN_URLS, (community_id,))
+    cur.execute(SQL_KNOWN_URLS, (community_id, known_url_limit(community)))
     known_urls = {row[0] for row in cur.fetchall() if row[0]}
 
     session = requests.Session()
@@ -497,7 +505,7 @@ def extract_tickers_for_new_posts(cur) -> int:
     sorted_keywords = sorted(ticker_map.keys(), key=len, reverse=True)
 
     # 아직 분석하지 않은 게시글 조회
-    cur.execute(SQL_UNANALYZED_POSTS)
+    cur.execute(SQL_UNANALYZED_POSTS, (ANALYZE_BATCH_SIZE,))
     unanalyzed = cur.fetchall()
 
     if not unanalyzed:

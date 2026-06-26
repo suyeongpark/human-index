@@ -32,6 +32,8 @@ log = logging.getLogger(__name__)
 # ─── 설정 ──────────────────────────────────────────────
 from db_config import DB_CONFIG
 
+ANALYZE_BATCH_SIZE = int(os.environ.get("ANALYZE_BATCH_SIZE", "1000"))
+
 # Google News RSS 검색 쿼리 (종목 관련 기사 수집)
 RSS_FEEDS = [
     {
@@ -126,6 +128,7 @@ SQL_UNANALYZED_ARTICLES = """
     LEFT JOIN expert_article_mentions eam ON eam.article_id = ea.id
     WHERE es.source_type = 'article' AND eam.id IS NULL
     ORDER BY ea.id
+    LIMIT %s
 """
 SQL_INSERT_ARTICLE_MENTION = """
     INSERT INTO expert_article_mentions
@@ -181,7 +184,7 @@ def extract_tickers_for_articles(cur) -> int:
     ticker_map = build_ticker_map(cur)
     sorted_keywords = sorted(ticker_map.keys(), key=len, reverse=True)
 
-    cur.execute(SQL_UNANALYZED_ARTICLES)
+    cur.execute(SQL_UNANALYZED_ARTICLES, (ANALYZE_BATCH_SIZE,))
     unanalyzed = cur.fetchall()
 
     if not unanalyzed:

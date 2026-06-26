@@ -47,6 +47,12 @@ def test_mlbpark_crawl_depth_is_capped():
     assert all(c["max_pages"] == 1 for c in mlbpark_sources)
 
 
+def test_known_url_limit_scales_with_crawl_depth():
+    assert daily_worker.known_url_limit({"max_pages": 1, "posts_per_page": 20}) == 100
+    assert daily_worker.known_url_limit({"max_pages": 10, "posts_per_page": 20}) == 600
+    assert daily_worker.known_url_limit({"max_pages": 100, "posts_per_page": 30}) == 1000
+
+
 class FakeTickerCursor:
     def execute(self, query):
         self.query = query
@@ -83,7 +89,7 @@ class FakeExtractCursor:
 
     def execute(self, query, params=None):
         self._last_query = query
-        if params:
+        if params and query == daily_worker.SQL_INSERT_MENTION:
             self.inserted.append(params)
             self.rowcount = 1
 

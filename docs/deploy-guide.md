@@ -121,6 +121,8 @@ tail -f ~/Dev/Suyeongpark/human-index/logs/fmkorea_launchd_err.log
 
 Analyzer를 하루 1번만 실행하면 당일 신규 게시글은 종목/감성 분석이 지연됩니다. Stats updater는 대시보드 대부분이 `post_mentions`를 직접 조회하므로 하루 1번으로 운영합니다.
 
+Analyzer와 뉴스 후처리는 미분석 항목을 기본 1000건씩 처리합니다. 필요하면 launchd/GitHub Actions 환경변수 `ANALYZE_BATCH_SIZE`로 조정합니다.
+
 ### 시스템 잠자기 비활성화
 
 launchd가 안정적으로 동작하려면 시스템 잠자기를 꺼야 합니다:
