@@ -12,6 +12,7 @@
 erDiagram
     communities ||--o{ posts : "has"
     posts ||--o{ post_mentions : "contains"
+    posts ||--o| post_analysis_state : "tracked_by"
     tickers ||--o{ post_mentions : "referenced_in"
     tickers ||--o{ mention_daily_stats : "aggregated"
     communities ||--o{ mention_daily_stats : "source"
@@ -38,6 +39,11 @@ erDiagram
         timestamp post_date
         timestamptz collected_at
         varchar source_url
+    }
+
+    post_analysis_state {
+        bigint post_id PK,FK
+        timestamptz analyzed_at
     }
 
     tickers {
@@ -166,6 +172,17 @@ erDiagram
 - `ix_posts_community_date` — `(community_id, post_date)` : 커뮤니티별 일자 조회
 - `ix_posts_post_date` — `(post_date)` : 날짜 기반 조회
 - `uq_posts_source_url` — `UNIQUE(source_url)` : 중복 수집 방지
+
+---
+
+### 2-1. `post_analysis_state` — 게시글 분석 완료 상태
+
+종목이 하나도 매칭되지 않은 게시글도 반복 분석되지 않도록, 게시글별 분석 완료 여부를 별도로 저장한다.
+
+| Column | Type | Constraint | Description |
+|--------|------|------------|-------------|
+| `post_id` | `BIGINT` | `PK, FK → posts.id` | 분석 완료된 게시글 |
+| `analyzed_at` | `TIMESTAMPTZ` | `NOT NULL DEFAULT NOW()` | 분석 완료 일시 |
 
 ---
 
@@ -409,6 +426,12 @@ CREATE TABLE posts (
 CREATE INDEX ix_posts_community_date ON posts (community_id, post_date);
 CREATE INDEX ix_posts_post_date ON posts (post_date);
 CREATE UNIQUE INDEX uq_posts_source_url ON posts (source_url) WHERE source_url IS NOT NULL;
+
+-- 2-1. post_analysis_state
+CREATE TABLE post_analysis_state (
+    post_id     BIGINT      PRIMARY KEY REFERENCES posts(id) ON DELETE CASCADE,
+    analyzed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
 
 -- 3. tickers
 CREATE TABLE tickers (

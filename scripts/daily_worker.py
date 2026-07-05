@@ -55,19 +55,30 @@ SQL_INSERT_POST = """
     VALUES (%s, %s, %s, %s, %s)
     ON CONFLICT (source_url) WHERE source_url IS NOT NULL DO NOTHING
 """
+SQL_ENSURE_POST_ANALYSIS_STATE = """
+    CREATE TABLE IF NOT EXISTS post_analysis_state (
+        post_id BIGINT PRIMARY KEY REFERENCES posts(id) ON DELETE CASCADE,
+        analyzed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+"""
 SQL_LOAD_TICKERS = "SELECT id, symbol, name, market FROM tickers WHERE is_active = TRUE"
 SQL_UNANALYZED_POSTS = """
     SELECT p.id, p.title
     FROM posts p
-    LEFT JOIN post_mentions pm ON pm.post_id = p.id
-    WHERE pm.id IS NULL
-    ORDER BY p.id
+    LEFT JOIN post_analysis_state pas ON pas.post_id = p.id
+    WHERE pas.post_id IS NULL
+    ORDER BY p.id DESC
     LIMIT %s
 """
 SQL_INSERT_MENTION = """
     INSERT INTO post_mentions (post_id, ticker_id, sentiment)
     VALUES (%s, %s, %s)
     ON CONFLICT (post_id, ticker_id) DO NOTHING
+"""
+SQL_MARK_POST_ANALYZED = """
+    INSERT INTO post_analysis_state (post_id)
+    VALUES (%s)
+    ON CONFLICT (post_id) DO UPDATE SET analyzed_at = EXCLUDED.analyzed_at
 """
 SQL_DELETE_DAILY_STATS = "DELETE FROM mention_daily_stats WHERE stat_date = %s"
 SQL_INSERT_COMMUNITY_STATS = """
@@ -496,6 +507,8 @@ def build_ticker_map(cur) -> dict:
 
 def extract_tickers_for_new_posts(cur) -> int:
     """미분석 게시글에서 종목 추출 + 감성 분석"""
+    cur.execute(SQL_ENSURE_POST_ANALYSIS_STATE)
+
     ticker_map = build_ticker_map(cur)
     if not ticker_map:
         log.warning("  종목 매핑이 비어있습니다")
@@ -533,6 +546,8 @@ def extract_tickers_for_new_posts(cur) -> int:
                         except Exception:
                             pass
                 remaining = remaining.replace(keyword, "", 1)
+
+        cur.execute(SQL_MARK_POST_ANALYZED, (post_id,))
 
     return total_mentions
 

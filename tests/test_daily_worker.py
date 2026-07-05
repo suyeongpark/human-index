@@ -85,12 +85,16 @@ class FakeExtractCursor:
     def __init__(self):
         self.rowcount = 0
         self.inserted = []
+        self.marked_analyzed = []
         self._last_query = ""
 
     def execute(self, query, params=None):
         self._last_query = query
         if params and query == daily_worker.SQL_INSERT_MENTION:
             self.inserted.append(params)
+            self.rowcount = 1
+        elif params and query == daily_worker.SQL_MARK_POST_ANALYZED:
+            self.marked_analyzed.append(params[0])
             self.rowcount = 1
 
     def fetchall(self):
@@ -118,3 +122,4 @@ def test_extract_tickers_for_new_posts_inserts_unique_mentions(monkeypatch):
     assert (101, 2, 1) in cur.inserted
     assert (102, 3, -1) in cur.inserted
     assert len(cur.inserted) == 3
+    assert cur.marked_analyzed == [101, 102]

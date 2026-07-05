@@ -28,6 +28,12 @@ CREATE INDEX ix_posts_community_date ON posts (community_id, post_date);
 CREATE INDEX ix_posts_post_date ON posts (post_date);
 CREATE UNIQUE INDEX uq_posts_source_url ON posts (source_url) WHERE source_url IS NOT NULL;
 
+-- 2-1. post_analysis_state
+CREATE TABLE post_analysis_state (
+    post_id     BIGINT      PRIMARY KEY REFERENCES posts(id) ON DELETE CASCADE,
+    analyzed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 -- 3. tickers
 CREATE TABLE tickers (
     id          SERIAL          PRIMARY KEY,
