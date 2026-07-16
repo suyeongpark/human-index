@@ -2,7 +2,7 @@
 FM코리아 크롤러 상태 확인 및 macOS 알림.
 
 최근 로그에서 FM코리아 응답이 연속 430이면 쿠키 갱신/차단 가능성을
-DB 알림 테이블에 열어두고, 처리 완료 전까지 macOS 알림으로 알려준다.
+DB 알림 테이블에 열어두고, 정상 응답이 확인될 때까지 macOS 알림으로 알려준다.
 """
 
 from __future__ import annotations
@@ -191,27 +191,16 @@ def open_or_update_alert(
                     last_detected_at = NOW(),
                     resolved_at = NULL,
                     resolution_note = NULL,
+                    last_notified_at = CASE
+                        WHEN crawler_health_alerts.status = 'resolved'
+                        THEN NULL
+                        ELSE crawler_health_alerts.last_notified_at
+                    END,
                     details = EXCLUDED.details,
                     updated_at = NOW()
                 """,
                 (alert_key, source, title, message, Json(details)),
             )
-
-
-def has_open_alert(alert_key: str) -> bool:
-    with connect_db() as conn:
-        with conn.cursor() as cur:
-            ensure_alert_table(cur)
-            cur.execute(
-                """
-                SELECT 1
-                FROM crawler_health_alerts
-                WHERE alert_key = %s
-                  AND status = 'open'
-                """,
-                (alert_key,),
-            )
-            return cur.fetchone() is not None
 
 
 def alert_notify_due(alert_key: str, repeat_minutes: int) -> bool:
@@ -260,6 +249,13 @@ def record_open_alert_fallback(
     state["last_detected_at"] = now.isoformat()
 
 
+def clear_open_alert_state(state: dict) -> None:
+    state.pop("open_alert_key", None)
+    state.pop("open_alert_message", None)
+    state.pop("open_alert_at", None)
+    state.pop("last_alert_at", None)
+
+
 def send_macos_notification(title: str, message: str) -> None:
     safe_title = title.replace("\\", "\\\\").replace('"', '\\"')
     safe_message = message.replace("\\", "\\\\").replace('"', '\\"')
@@ -303,9 +299,7 @@ def main() -> int:
         except psycopg2.Error as exc:
             print(f"FM코리아 알림 처리 완료 실패: DB 오류 - {exc}")
             return 1
-        state.pop("open_alert_key", None)
-        state.pop("open_alert_message", None)
-        state.pop("open_alert_at", None)
+        clear_open_alert_state(state)
         save_state(args.state_path, state)
         if resolved:
             print("FM코리아 알림 처리 완료: 열린 쿠키 갱신 알림을 닫았습니다.")
@@ -369,20 +363,17 @@ def main() -> int:
     if latest.status == 200:
         state["last_healthy_at"] = latest.timestamp.isoformat()
         try:
-            if has_open_alert(DEFAULT_ALERT_KEY):
-                if alert_notify_due(DEFAULT_ALERT_KEY, args.repeat_minutes):
-                    message = (
-                        "FM코리아 응답은 정상화됐지만 쿠키 갱신 알림이 아직 열려 있습니다. "
-                        "확인 후 처리 완료를 실행하세요."
-                    )
-                    if not args.no_notify:
-                        send_macos_notification("Human Index", message)
-                    mark_alert_notified(DEFAULT_ALERT_KEY)
-                    print(f"FM코리아 알림 미처리: {message}")
-                    save_state(args.state_path, state)
-                    return 0
+            resolved = resolve_alert(
+                DEFAULT_ALERT_KEY,
+                "FM코리아 정상 응답 확인으로 자동 처리 완료",
+            )
+            clear_open_alert_state(state)
+            if resolved:
+                save_state(args.state_path, state)
+                print("FM코리아 상태 정상: 열린 쿠키 갱신 알림을 자동으로 닫았습니다.")
+                return 0
         except psycopg2.Error as exc:
-            print(f"FM코리아 상태 정상, DB 알림 확인 실패: {exc}")
+            print(f"FM코리아 상태 정상, DB 알림 자동 처리 실패: {exc}")
     save_state(args.state_path, state)
     print(f"FM코리아 상태 정상: 최신 status={latest.status}")
     return 0

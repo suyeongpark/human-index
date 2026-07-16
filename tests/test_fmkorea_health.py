@@ -1,5 +1,7 @@
 from datetime import datetime
 
+import check_fmkorea_health as health
+
 from check_fmkorea_health import (
     has_consecutive_430,
     parse_status_entries,
@@ -46,3 +48,45 @@ def test_recent_entries_filters_by_lookback_minutes():
     )
 
     assert [entry.status for entry in recent] == [200]
+
+
+def test_healthy_response_automatically_resolves_open_alert(monkeypatch, tmp_path):
+    now = datetime.now()
+    log_line = (
+        f"{now:%Y-%m-%d %H:%M:%S},000 [INFO] "
+        "[FM디버그] status=200 len=72531 tr=24 cate=23 normal=20"
+    )
+    resolved = []
+    saved_states = []
+
+    monkeypatch.setattr(health, "tail_lines", lambda _: [log_line])
+    monkeypatch.setattr(
+        health,
+        "resolve_alert",
+        lambda alert_key, note: resolved.append((alert_key, note)) or True,
+    )
+    monkeypatch.setattr(
+        health,
+        "save_state",
+        lambda _, state: saved_states.append(state.copy()),
+    )
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "check_fmkorea_health.py",
+            "--log-path",
+            str(tmp_path / "fmkorea.log"),
+            "--state-path",
+            str(tmp_path / "health-state.json"),
+            "--no-notify",
+        ],
+    )
+
+    assert health.main() == 0
+    assert resolved == [
+        (
+            health.DEFAULT_ALERT_KEY,
+            "FM코리아 정상 응답 확인으로 자동 처리 완료",
+        )
+    ]
+    assert saved_states[-1]["last_status"] == 200

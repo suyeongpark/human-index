@@ -141,11 +141,7 @@ sudo pmset -c sleep 0
 
 쿠키는 계정 정보와 연결될 수 있으므로 저장소에 커밋하지 말고, 로컬 launchd 환경변수나 비밀 설정으로만 관리합니다.
 
-FM코리아 헬스체크는 연속 `status=430`을 감지하면 `crawler_health_alerts`에 `fmkorea_cookie_430` 알림을 열고, 처리 완료 전까지 30분마다 macOS 알림을 반복합니다. 쿠키를 갱신하고 정상 수집을 확인한 뒤 아래 명령으로 알림을 닫습니다.
-
-```bash
-python scripts/check_fmkorea_health.py --resolve
-```
+FM코리아 헬스체크는 연속 `status=430`을 감지하면 `crawler_health_alerts`에 `fmkorea_cookie_430` 알림을 열고, 정상 응답(`200`)이 확인될 때까지 30분마다 macOS 알림을 반복합니다. 정상 수집이 확인되면 열린 알림은 자동으로 닫힙니다.
 
 > GitHub Actions와 로컬 launchd가 동시에 돌아도 `source_url` 기준 `ON CONFLICT DO NOTHING`으로 중복 데이터가 발생하지 않습니다.
 
